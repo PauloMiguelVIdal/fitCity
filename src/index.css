@@ -1,0 +1,14 @@
+/* src/index.css */
+@import "tailwindcss";
+
+@theme {
+  --color-fitcity-bg: #350973;
+  --color-fitcity-surface: #6411D9;
+  --color-fitcity-accent: #6E0BF9;
+  --color-fitcity-energy: #F27405;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
