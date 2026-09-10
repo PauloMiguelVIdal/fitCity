@@ -692,7 +692,7 @@ export default function MapWorldFitCity() {
 
   // ── Render ──────────────────────────────────────────────────
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden', backgroundColor:'#350973' }}>
       <Canvas 
         frameloop="demand"
         shadows={canvasConfig.shadows}

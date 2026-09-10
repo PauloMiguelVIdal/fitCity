@@ -1,5 +1,5 @@
 // src/components/CardFitCity.jsx
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, memo,useMemo } from 'react'
 
 const getImageUrl = (nome) => `/imagens/${nome}.png`
 
@@ -16,7 +16,7 @@ const RARIDADE_CONFIG = {
 }
 
 // =============================================
-// FUNDO DE PARTÍCULAS
+// FUNDO DE PARTÍCULAS OTIMIZADO
 // =============================================
 function StarsCanvas() {
   const canvasRef = useRef(null)
@@ -26,12 +26,12 @@ function StarsCanvas() {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     let width = 0, height = 0, stars = [], frame = 0, raf
-    const STAR_COUNT = 24
+    const STAR_COUNT = 12 // REDUZIDO de 24 para 12
 
     const resize = () => {
       const rect = canvas.parentElement?.getBoundingClientRect()
       if (!rect) return
-      const dpr = window.devicePixelRatio || 1
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5) // LIMITA DPR
       width = rect.width; height = rect.height
       canvas.width = width * dpr; canvas.height = height * dpr
       canvas.style.width = `${width}px`; canvas.style.height = `${height}px`
@@ -41,7 +41,8 @@ function StarsCanvas() {
     const createStars = () => {
       stars = Array.from({ length: STAR_COUNT }, () => ({
         x: Math.random() * width, y: Math.random() * height,
-        radius: Math.random() * 1.1 + 0.3, speed: Math.random() * 0.003 + 0.001,
+        radius: Math.random() * 0.8 + 0.2, // MENOR
+        speed: Math.random() * 0.002 + 0.001,
         phase: Math.random() * Math.PI * 2,
       }))
     }
@@ -49,17 +50,20 @@ function StarsCanvas() {
     const draw = () => {
       ctx.clearRect(0, 0, width, height)
       ctx.beginPath()
-      for (const s of stars) { ctx.moveTo(s.x + s.radius, s.y); ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2) }
-      ctx.fillStyle = 'rgba(200,200,255,0.4)'
-      ctx.shadowColor = 'rgba(150,150,255,0.15)'
-      ctx.shadowBlur = 3
+      for (const s of stars) { 
+        ctx.moveTo(s.x + s.radius, s.y)
+        ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2)
+      }
+      ctx.fillStyle = 'rgba(200,200,255,0.3)'
+      ctx.shadowColor = 'rgba(150,150,255,0.1)'
+      ctx.shadowBlur = 2
       ctx.fill()
       ctx.shadowBlur = 0
     }
 
     const animate = () => {
       frame++
-      if (frame % 2 === 0) {
+      if (frame % 3 === 0) { // REDUZ FPS DE 60 para 20
         const t = Date.now() * 0.001
         for (const s of stars) s.opacity = 0.2 + 0.3 * (0.5 + 0.5 * Math.sin(t * s.speed + s.phase))
         draw()
@@ -75,38 +79,44 @@ function StarsCanvas() {
   return (
     <canvas
       ref={canvasRef}
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0, borderRadius: 'inherit' }}
+      style={{ 
+        position: 'absolute', 
+        inset: 0, 
+        width: '100%', 
+        height: '100%', 
+        pointerEvents: 'none', 
+        zIndex: 0, 
+        borderRadius: 'inherit',
+        opacity: 0.5 // REDUZ OPACIDADE
+      }}
     />
   )
 }
 
 // =============================================
-// CARD FIT CITY - COM CORES DO SETOR
+// CARD FIT CITY - MEMOIZADO
 // =============================================
-export default function CardFitCity({ 
+const CardFitCity = memo(function CardFitCity({ 
   nome, 
   raridade = 'comum', 
   quantidade,
-  // Cores do setor
   cor1,
   cor2,
   cor3,
   cor4,
   setorLabel,
 }) {
-  // Pega a configuração base da raridade
   const config = RARIDADE_CONFIG[raridade] ?? RARIDADE_CONFIG.comum
-
-  // Usa as cores do setor para o fundo
   const corBg = cor1 || config.corBg
   const corBgGradient = cor2 || config.corBg
   const corDestaque = cor3 || config.cor
-  
-  // Usa a cor da raridade para bordas e textos
   const cor = config.cor
   const corText = config.corText
   const corBorder = config.corBorder
   const boxShadow = config.boxShadow
+
+  // Memoiza a imagem para evitar recarregamentos
+  const imageUrl = useMemo(() => getImageUrl(nome), [nome])
 
   return (
     <div
@@ -115,11 +125,11 @@ export default function CardFitCity({
         background: `linear-gradient(135deg, ${corBg} 0%, ${corBgGradient} 50%, #000 100%)`,
         border: `2px solid ${corBorder}`,
         boxShadow: boxShadow,
+        willChange: 'transform', // DICA DE PERFORMANCE
       }}
     >
       <StarsCanvas />
 
-      {/* Imagem do edifício */}
       <div
         className="relative z-10 w-16 h-16 rounded-xl flex items-center justify-center"
         style={{ 
@@ -128,21 +138,20 @@ export default function CardFitCity({
         }}
       >
         <img
-          src={getImageUrl(nome)}
+          src={imageUrl}
           alt={nome}
           loading="lazy"
+          decoding="async" // DECODIFICAÇÃO ASSÍNCRONA
           className="w-[70%] h-[70%] object-contain"
           style={{ filter: `drop-shadow(0 0 6px ${cor}88)` }}
           onError={(e) => { e.currentTarget.style.display = 'none' }}
         />
       </div>
 
-      {/* Estrelas */}
       <div className="relative z-10 flex gap-0.5" style={{ color: cor, textShadow: `0 0 6px ${cor}` }}>
         {config.stars === 6 ? '∞' : '★'.repeat(config.stars)}
       </div>
 
-      {/* Nome e quantidade */}
       <div className="relative z-10 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: corText }}>
           {nome}
@@ -153,4 +162,6 @@ export default function CardFitCity({
       </div>
     </div>
   )
-}
+})
+
+export default CardFitCity

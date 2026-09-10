@@ -1,5 +1,6 @@
 // src/screens/InventoryScreen.jsx
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from 'react'
+import { Grid } from 'react-window'
 import CardFitCity from '../components/CardFitCity'
 import MapWorldFitCity from '../components/MapWorldCity'
 
@@ -20,12 +21,12 @@ const CARTAS_FITCITY = [
   { nome: "Cooperativa Agrícola", raridade: "epico", qtd: 2 },
   { nome: "Centro De Comércio De Plantações", raridade: "raro", qtd: 1 },
   { nome: "Área Florestal", raridade: "comum", qtd: 1 },
-  
+
   // Energia
   { nome: "Subestação De Energia", raridade: "comum", qtd: 1 },
   { nome: "Campo De Estocagem", raridade: "comum", qtd: 1 },
   { nome: "Silo", raridade: "comum", qtd: 3 },
-  
+
   // Indústria
   { nome: "Fazenda De Vacas", raridade: "incomum", qtd: 3 },
   { nome: "Granja De Aves", raridade: "incomum", qtd: 2 },
@@ -44,14 +45,14 @@ const CARTAS_FITCITY = [
   { nome: "Fábrica De Peças Automotivas", raridade: "epico", qtd: 1 },
   { nome: "Fábrica De Smartphones", raridade: "epico", qtd: 2 },
   { nome: "Empresa De Automação Industrial", raridade: "epico", qtd: 1 },
-  
+
   // Tecnologia
   { nome: "Startup", raridade: "comum", qtd: 1 },
   { nome: "Servidor Em Nuvem", raridade: "raro", qtd: 1 },
   { nome: "Empresa De Desenvolvimento De Software", raridade: "raro", qtd: 1 },
   { nome: "Centro De Pesquisa Em Fusão Nuclear", raridade: "epico", qtd: 1 },
   { nome: "Centro De Pesquisa Aeroespacial", raridade: "epico", qtd: 1 },
-  
+
   // Comércio
   { nome: "Feira", raridade: "comum", qtd: 1 },
   { nome: "Loja De Móveis", raridade: "comum", qtd: 1 },
@@ -66,7 +67,7 @@ const CARTAS_FITCITY = [
   { nome: "Shopping Popular", raridade: "lendario", qtd: 2 },
   { nome: "Shopping Center", raridade: "lendario", qtd: 1 },
   { nome: "Mega Mercado", raridade: "epico", qtd: 1 },
-  
+
   // Imobiliário
   { nome: "Construtora De Pequenas Obras", raridade: "comum", qtd: 1 },
   { nome: "Cartório E Licenças", raridade: "comum", qtd: 1 },
@@ -77,7 +78,7 @@ const CARTAS_FITCITY = [
   { nome: "Imobiliária Residencial", raridade: "raro", qtd: 1 },
   { nome: "Imobiliária Comercial", raridade: "raro", qtd: 1 },
   { nome: "Construtora De Infraestruturas", raridade: "lendario", qtd: 1 },
-  
+
   // Recursos e logística
   { nome: "Hangar", raridade: "comum", qtd: 1 },
   { nome: "Mineradora", raridade: "raro", qtd: 1 },
@@ -96,15 +97,15 @@ const CARTAS_FITCITY = [
   { nome: "Usina Termelétrica", raridade: "raro", qtd: 1 },
   { nome: "Reator Nuclear Convencional", raridade: "lendario", qtd: 1 },
   { nome: "Usina De Fusão Nuclear", raridade: "lendario", qtd: 1 },
-  
+
   // Transporte
   { nome: "Aeroporto", raridade: "lendario", qtd: 1 },
   { nome: "Porto", raridade: "lendario", qtd: 1 },
   { nome: "Estaleiro", raridade: "epico", qtd: 1 },
   { nome: "Fábrica De Aeronaves", raridade: "lendario", qtd: 1 },
   { nome: "Fábrica De Foguetes", raridade: "lendario", qtd: 1 },
-  { nome: "Armazém De Materiais Sensíveis", raridade: "comum", qtd: 1 },
-  
+  // { nome: "Armazém De Materiais Sensíveis", raridade: "comum", qtd: 1 },
+
   // Outros
   { nome: "Criação De Ovinos", raridade: "incomum", qtd: 2 },
   { nome: "Prédio De Alto Padrão", raridade: "epico", qtd: 2 },
@@ -134,7 +135,7 @@ const mapaSetor = {
   "Plantação De Plantas Medicinais": "agricultura",
   "Campo De Estocagem": "agricultura",
   "Pátio De Mineração": "agricultura",
-  
+
 
   // Indústria
   "Fábrica De Móveis": "industria",
@@ -176,8 +177,8 @@ const mapaSetor = {
   "Fábrica De Foguetes": "industria",
   "Fábrica De Aeronaves": "industria",
   "Estaleiro": "industria",
- "Container Modular": "industria",
- "Pátio De Veículos": "industria",
+  "Container Modular": "industria",
+  "Pátio De Veículos": "industria",
 
 
   // Tecnologia
@@ -261,10 +262,10 @@ const mapaSetor = {
   "Mega Mercado": "imobiliario",
   "Prédio De Alto Padrão": "imobiliario",
   "Centro De Coleta De Biomassa": "imobiliario",
-  "Tanque De Armazenamento De Fluidos":"imobiliario",
+  "Tanque De Armazenamento De Fluidos": "imobiliario",
   "Plataforma De Petróleo": "imobiliario",
   "Hangar": "imobiliario",
- 
+
 
   // Energia
   "Subestação De Energia": "energia",
@@ -280,7 +281,7 @@ const mapaSetor = {
   "Centro De Pesquisa Energética": "energia",
   "Centro De Reciclagem De Baterias": "energia",
   "Usina Termelétrica A Biocombustíveis": "energia",
-  "Armazém De Materiais Sensíveis": "energia",
+  // "Armazém De Materiais Sensíveis": "energia",
   "Usina De Biomassa": "energia",
   "Usina Hidrelétrica": "energia",
   "Parque Eólico": "energia",
@@ -293,81 +294,73 @@ const mapaSetor = {
 // CONFIGURAÇÃO DOS SETORES COM CORES
 // =============================================
 const SETORES_CONFIG = {
-  agricultura: { 
-    id: "agricultura", 
-    label: "Agricultura", 
-    cor1: "#003816", 
-    cor2: "#1A5E2A", 
-    cor3: "#0C9123", 
-    cor4: "#4CAF50" 
+  agricultura: {
+    id: "agricultura",
+    label: "Agricultura",
+    cor1: "#003816",
+    cor2: "#1A5E2A",
+    cor3: "#0C9123",
+    cor4: "#4CAF50"
   },
-  tecnologia: { 
-    id: "tecnologia", 
-    label: "Tecnologia", 
-    cor1: "#A64B00", 
-    cor2: "#D45A00", 
-    cor3: "#FF6F00", 
-    cor4: "#FF8C42" 
+  tecnologia: {
+    id: "tecnologia",
+    label: "Tecnologia",
+    cor1: "#A64B00",
+    cor2: "#D45A00",
+    cor3: "#FF6F00",
+    cor4: "#FF8C42"
   },
-  industria: { 
-    id: "industria", 
-    label: "Indústria", 
-    cor1: "#1A1A1A", 
-    cor2: "#4D4D4D", 
-    cor3: "#808080", 
-    cor4: "#B3B3B3" 
+  industria: {
+    id: "industria",
+    label: "Indústria",
+    cor1: "#1A1A1A",
+    cor2: "#4D4D4D",
+    cor3: "#808080",
+    cor4: "#B3B3B3"
   },
-  comercio: { 
-    id: "comercio", 
-    label: "Comércio", 
-    cor1: "#660000", 
-    cor2: "#A31919", 
-    cor3: "#E60000", 
-    cor4: "#FF4D4D" 
+  comercio: {
+    id: "comercio",
+    label: "Comércio",
+    cor1: "#660000",
+    cor2: "#A31919",
+    cor3: "#E60000",
+    cor4: "#FF4D4D"
   },
-  imobiliario: { 
-    id: "imobiliario", 
-    label: "Imobiliário", 
-    cor1: "#000066", 
-    cor2: "#1A1A8C", 
-    cor3: "#3333CC", 
-    cor4: "#6666FF" 
+  imobiliario: {
+    id: "imobiliario",
+    label: "Imobiliário",
+    cor1: "#000066",
+    cor2: "#1A1A8C",
+    cor3: "#3333CC",
+    cor4: "#6666FF"
   },
-  energia: { 
-    id: "energia", 
-    label: "Energia", 
-    cor1: "#665200", 
-    cor2: "#A37F19", 
-    cor3: "#E6B800", 
-    cor4: "#FFD966" 
+  energia: {
+    id: "energia",
+    label: "Energia",
+    cor1: "#665200",
+    cor2: "#A37F19",
+    cor3: "#E6B800",
+    cor4: "#FFD966"
   },
-  outros: { 
-    id: "outros", 
-    label: "📦", 
-    cor1: "#1A1A1A", 
-    cor2: "#4D4D4D", 
-    cor3: "#808080", 
-    cor4: "#B3B3B3" 
+  outros: {
+    id: "outros",
+    label: "📦",
+    cor1: "#1A1A1A",
+    cor2: "#4D4D4D",
+    cor3: "#808080",
+    cor4: "#B3B3B3"
   },
 }
 
 // =============================================
 // FUNÇÃO GET SETOR
 // =============================================
-const getSetor = (nome) => {
-  return mapaSetor[nome] || "outros"
-}
+const getSetor = (nome) => mapaSetor[nome] || "outros"
 
-// =============================================
-// FILTROS
-// =============================================
 const FILTROS_RARIDADE = ['todas', 'comum', 'incomum', 'raro', 'epico', 'lendario']
 const FILTROS_RANK = ['todos', 'S', 'A', 'B', 'C']
 const FILTROS_SETOR = ['todos', 'agricultura', 'industria', 'tecnologia', 'comercio', 'imobiliario', 'energia']
 
-// =============================================
-// FUNÇÃO GET RANK
-// =============================================
 const getRank = (nome) => {
   const RankS = [
     "Usina Hidrelétrica", "Reator Nuclear Convencional", "Usina De Fusão Nuclear",
@@ -385,7 +378,7 @@ const getRank = (nome) => {
     "Centro De Pesquisa Em Fusão Nuclear", "Centro De Pesquisa Aeroespacial",
     "Centro De Engenharia Avançada", "Centro De Pesquisa Em Materiais",
     "Centro De Pesquisa Em IA", "Mineradora De Pedras Preciosas", "Mega Mercado",
-    "Prédio De Alto Padrão", "Tanque De Armazenamento Biocombustível", 
+    "Prédio De Alto Padrão", "Tanque De Armazenamento Biocombustível",
     "Fábrica De Químicos Especializados", "Alto-Forno", "Usina Siderúrgica",
     "Fundição De Alumínio", "Fábrica De Ligas Metálicas", "Fábrica De Peças Automotivas",
     "Refinaria De Biocombustíveis", "Biofábrica", "Fábrica De Eletrônicos",
@@ -395,7 +388,7 @@ const getRank = (nome) => {
   const RankB = [
     "Centro De Comércio De Plantações", "Empresa De Comércio Energético",
     "Empresa De Consultoria Energética", "Centro De Pesquisa Em Energias Renováveis",
-    "Centro De Pesquisa Energética", "Usina Termelétrica A Biocombustíveis", 
+    "Centro De Pesquisa Energética", "Usina Termelétrica A Biocombustíveis",
     "Usina Termelétrica", "Joalheria", "Concessionária De Veículos",
     "Centro De Distribuição", "Armazém Logístico", "Servidor Em Nuvem", "Data Center",
     "Empresa De Desenvolvimento De Software", "Empresa De Jogos Digitais",
@@ -419,17 +412,82 @@ const getRank = (nome) => {
 }
 
 // =============================================
-// COMPONENTE PRINCIPAL
+// COMPONENTE DE FILTRO MEMOIZADO
 // =============================================
+const CartaCell = memo(({ columnIndex, rowIndex, style, cartas, columnCount }) => {
+  const index = rowIndex * columnCount + columnIndex
+  if (index >= cartas.length) return null
+
+  const { nome, raridade, qtd, setor } = cartas[index]
+  const config = SETORES_CONFIG[setor] || SETORES_CONFIG.outros
+
+  return (
+    <div style={{ ...style, paddingRight: GRID_GAP, paddingBottom: GRID_GAP }}>
+      <CardFitCity
+        nome={nome}
+        raridade={raridade}
+        quantidade={qtd}
+        cor1={config.cor1}
+        cor2={config.cor2}
+        cor3={config.cor3}
+        cor4={config.cor4}
+        setorLabel={config.label}
+      />
+    </div>
+  )
+})
+
+
+const FiltroButton = memo(({ value, label, isActive, onClick, style, className }) => (
+  <button
+    onClick={onClick}
+    className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition whitespace-nowrap ${
+      isActive 
+        ? 'text-white shadow-[0_2px_10px_rgba(242,116,5,0.45)]' 
+        : 'bg-white/5 border border-white/10 text-white/40 hover:bg-white/10'
+    } ${className || ''}`}
+    style={isActive ? { background: style } : {}}
+  >
+    {label}
+  </button>
+))
+
+const GRID_GAP = 12
+const COLUMN_COUNT = 3
+
 export default function InventoryScreen() {
+
+
   const [aba, setAba] = useState('cartas')
   const [filtroRaridade, setFiltroRaridade] = useState('todas')
   const [filtroRank, setFiltroRank] = useState('todos')
   const [filtroSetor, setFiltroSetor] = useState('todos')
+const gridContainerRef = useRef(null)
+const [gridSize, setGridSize] = useState({ width: 0, height: 0 })
 
-  // =============================================
-  // PROCESSAMENTO DOS DADOS
-  // =============================================
+useEffect(() => {
+  const element = gridContainerRef.current
+  if (!element) return
+
+  const updateSize = () => {
+    const rect = element.getBoundingClientRect()
+    setGridSize({ width: Math.floor(rect.width), height: Math.floor(rect.height) })
+  }
+
+  updateSize()
+  const resizeObserver = new ResizeObserver(updateSize)
+  resizeObserver.observe(element)
+  return () => resizeObserver.disconnect()
+}, [])
+
+const columnWidth = gridSize.width > 0
+  ? Math.floor((gridSize.width - GRID_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT)
+  : 0
+
+const rowHeight = columnWidth > 0
+  ? Math.ceil((columnWidth * 4) / 3) + GRID_GAP // card usa aspect-[3/4]
+  : 0
+
   const cartasProcessadas = useMemo(() => {
     return CARTAS_FITCITY.map(carta => ({
       ...carta,
@@ -438,28 +496,22 @@ export default function InventoryScreen() {
     }))
   }, [])
 
-  // =============================================
-  // FILTROS
-  // =============================================
+
   const cartasFiltradas = useMemo(() => {
     let filtradas = cartasProcessadas
-    
-    // Filtro por raridade
+
     if (filtroRaridade !== 'todas') {
       filtradas = filtradas.filter(c => c.raridade === filtroRaridade)
     }
-    
-    // Filtro por rank
+
     if (filtroRank !== 'todos') {
       filtradas = filtradas.filter(c => c.rank === filtroRank)
     }
-    
-    // Filtro por setor
+
     if (filtroSetor !== 'todos') {
       filtradas = filtradas.filter(c => c.setor === filtroSetor)
     }
-    
-    // Ordenação: primeiro por setor, depois por rank, depois por nome
+
     const ordemSetor = { 'agricultura': 0, 'industria': 1, 'tecnologia': 2, 'comercio': 3, 'imobiliario': 4, 'energia': 5, 'outros': 6 }
     const ordemRank = { 'S': 0, 'A': 1, 'B': 2, 'C': 3 }
     filtradas.sort((a, b) => {
@@ -471,22 +523,47 @@ export default function InventoryScreen() {
       }
       return a.nome.localeCompare(b.nome)
     })
-    
+
     return filtradas
   }, [cartasProcessadas, filtroRaridade, filtroRank, filtroSetor])
 
+const rowCount = Math.ceil(cartasFiltradas.length / COLUMN_COUNT)
   // =============================================
-  // RENDER
+  // PROCESSAMENTO DOS DADOS - MEMOIZADO
+  // =============================================
+
+
+  
+  // =============================================
+  // FILTROS - MEMOIZADO
+  // =============================================
+
+
+  // =============================================
+  // HANDLERS MEMOIZADOS
+  // =============================================
+  const handleSetorFilter = useCallback((setor) => {
+    setFiltroSetor(setor)
+  }, [])
+
+  const handleRaridadeFilter = useCallback((raridade) => {
+    setFiltroRaridade(raridade)
+  }, [])
+
+  // =============================================
+  // RENDER - OTIMIZADO COM PAGINAÇÃO
   // =============================================
   return (
     <div className="relative px-4 pt-6 flex flex-col gap-4 text-white min-h-screen">
       <div className="pointer-events-none absolute -top-10 left-0 w-64 h-64 rounded-full bg-fuchsia-500/20 blur-[80px]" />
 
       <h1 className="relative text-xl font-bold">Inventário</h1>
-            <div className="relative h-[60vh] rounded-2xl overflow-hidden bg-black/30 border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.4)]">
+      
+      {/* Mapa - memoizado separadamente */}
+      {/* <div className="relative h-[60vh] rounded-2xl overflow-hidden bg-black/30 border border-white/10 shadow-[0_15px_40px_rgba(0,0,0,0.4)]">
+        <MapWorldFitCity />
+      </div> */}
 
-          <MapWorldFitCity/>
-</div>
       {/* Abas */}
       <div className="relative flex bg-white/5 backdrop-blur-xl border border-white/10 rounded-full p-1 shadow-inner">
         {['cartas', 'pacotes'].map(id => (
@@ -494,8 +571,8 @@ export default function InventoryScreen() {
             key={id}
             onClick={() => setAba(id)}
             className={`flex-1 py-2 rounded-full text-sm font-semibold capitalize transition ${
-              aba === id 
-                ? 'bg-gradient-to-r from-fitcity-energy to-orange-600 shadow-[0_4px_14px_rgba(242,116,5,0.5)]' 
+              aba === id
+                ? 'bg-gradient-to-r from-fitcity-energy to-orange-600 shadow-[0_4px_14px_rgba(242,116,5,0.5)]'
                 : 'text-white/50'
             }`}
           >
@@ -511,7 +588,7 @@ export default function InventoryScreen() {
             {FILTROS_RARIDADE.map(f => (
               <button
                 key={f}
-                onClick={() => setFiltroRaridade(f)}
+                onClick={() => handleRaridadeFilter(f)}
                 className={`px-3 py-1.5 rounded-full text-xs whitespace-nowrap capitalize border transition ${
                   filtroRaridade === f
                     ? 'bg-gradient-to-r from-fitcity-energy to-orange-600 border-transparent shadow-[0_2px_10px_rgba(242,116,5,0.45)]'
@@ -523,30 +600,7 @@ export default function InventoryScreen() {
             ))}
           </div>
 
-          {/* Filtro de Rank */}
-          {/* <div className="relative flex gap-2 overflow-x-auto pb-1">
-            <span className="text-xs text-white/40 font-bold uppercase tracking-wider mr-1">Rank:</span>
-            {FILTROS_RANK.map(r => (
-              <button
-                key={r}
-                onClick={() => setFiltroRank(r)}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition ${
-                  filtroRank === r
-                    ? r === 'S' ? 'bg-gradient-to-r from-yellow-500 to-yellow-300 text-black shadow-[0_2px_10px_rgba(255,215,0,0.5)]'
-                      : r === 'A' ? 'bg-gradient-to-r from-purple-500 to-purple-300 text-white shadow-[0_2px_10px_rgba(168,85,247,0.5)]'
-                      : r === 'B' ? 'bg-gradient-to-r from-blue-500 to-blue-300 text-white shadow-[0_2px_10px_rgba(59,130,246,0.5)]'
-                      : r === 'C' ? 'bg-gradient-to-r from-gray-500 to-gray-300 text-white shadow-[0_2px_10px_rgba(156,163,175,0.5)]'
-                      : 'bg-white/5 border border-white/10 text-white/40 hover:bg-white/10'
-                    : 'bg-white/5 border border-white/10 text-white/40 hover:bg-white/10'
-                }`}
-              >
-                {r === 'todos' ? 'Todos' : r}
-              </button>
-            ))}
-          </div> */}
-
-          {/* Filtro de Setor (6 setores) */}
-
+          {/* Filtro de Setor */}
           <div className="relative flex gap-2 overflow-x-auto pb-1">
             <span className="text-xs text-white/40 font-bold uppercase tracking-wider mr-1">Setor:</span>
             {FILTROS_SETOR.map(s => {
@@ -555,7 +609,7 @@ export default function InventoryScreen() {
               return (
                 <button
                   key={s}
-                  onClick={() => setFiltroSetor(s)}
+                  onClick={() => handleSetorFilter(s)}
                   className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition ${
                     filtroSetor === s
                       ? 'text-white shadow-[0_2px_10px_rgba(242,116,5,0.45)]'
@@ -563,46 +617,37 @@ export default function InventoryScreen() {
                   }`}
                   style={filtroSetor === s ? { background: corAtiva } : {}}
                 >
-                
                   {config.label !== '📦' ? (
-          <img
-            src={getImageUrl(config.id)}
-            alt={config.label}
-          />
-        ) : (
-          <span>{config.label}</span>
-        )}
+                    <img
+                      src={getImageUrl(config.id)}
+                      alt={config.label}
+                      className="w-4 h-4 object-contain"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span>{config.label}</span>
+                  )}
                 </button>
               )
             })}
           </div>
-          {/* Grid de Cartas */}
-          <div className="grid grid-cols-3 gap-3 pb-4">
-            {cartasFiltradas.map(({ nome, raridade, qtd, rank, setor }) => {
-              // Pega a configuração do setor
-              const config = SETORES_CONFIG[setor] || SETORES_CONFIG.outros
-              
-              return (
-                <CardFitCity
-                  key={nome}
-                  nome={nome}
-                  raridade={raridade}
-                  quantidade={qtd}
-                  // Usa as cores do setor
-                  cor1={config.cor1}
-                  cor2={config.cor2}
-                  cor3={config.cor3}
-                  cor4={config.cor4}
-                  setorLabel={config.label}
-                />
-              )
-            })}
-          </div>
 
-          {/* Contador */}
-          {/* <div className="text-center text-white/30 text-xs py-2">
-            {cartasFiltradas.length} edifício{cartasFiltradas.length !== 1 ? 's' : ''}
-          </div> */}
+          {/* Grid de Cartas - com paginação para reduzir renderização */}
+<div ref={gridContainerRef} className="w-full h-[500px] pb-4">
+  {gridSize.width > 0 && (
+    <Grid
+      cellComponent={CartaCell}
+      cellProps={{ cartas: cartasFiltradas, columnCount: COLUMN_COUNT }}
+      columnCount={COLUMN_COUNT}
+      columnWidth={columnWidth}
+      rowCount={rowCount}
+      rowHeight={rowHeight}
+      height={gridSize.height || 500}
+      width={gridSize.width}
+      overscanCount={2}
+    />
+  )}
+</div>
         </>
       )}
 
