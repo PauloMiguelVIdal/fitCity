@@ -6,7 +6,7 @@ import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 // MOCK DE DADOS
 // ============================================================
 const MOCK_EDIFICIO_BASE = {
-  nome: "Plantação De Grãos",
+  nome: "Armazém",
   quantidade: 12,
   custoConstrucao: 750_000,
   recursoDeConstrução: ["Fábrica De Fertilizantes"],
@@ -557,7 +557,7 @@ function useTilt3D({ maxTilt = 14, scale = 1.04, stiffness = 150, damping = 18, 
 // ============================================================
 const CardUpgradeMock = ({
   edificio = MOCK_EDIFICIO_BASE,
-  setor = "agricultura",
+  setor = "imobiliario",
   fatu = 8,
   redCusto = 5,
   dadosBase = MOCK_DADOS_BASE,
