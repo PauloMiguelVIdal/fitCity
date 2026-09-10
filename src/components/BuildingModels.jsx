@@ -2415,7 +2415,7 @@ export const EDIFICIO_PARA_MODELO = {
 
   "Subestação De Energia": 134,
   "Rede De Distribuição Elétrica": 517,
-  // "Usina Solar": 513,
+  "Usina Solar": 513,
   "Fábrica De Turbinas Eólicas": 515,
   "Fábrica De Painéis Solares": 504,
   "Fábrica De Baterias": 504,

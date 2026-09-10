@@ -1,12 +1,13 @@
 // src/components/CardUpgradeMock.jsx
 import React, { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-
+import imobiliario from '../../public/outrasImagens/setores/imobiliario.png'
+import { div } from "framer-motion/client";
 // ============================================================
 // MOCK DE DADOS
 // ============================================================
 const MOCK_EDIFICIO_BASE = {
-  nome: "Armazém",
+  nome: "Plantação De Grãos",
   quantidade: 12,
   custoConstrucao: 750_000,
   recursoDeConstrução: ["Fábrica De Fertilizantes"],
@@ -40,6 +41,7 @@ const MOCK_DADOS_BASE = {
 // CONSTANTES
 // ============================================================
 const getImageUrl = (nome) => `/imagens/${nome}.png`;
+const getImageUrlSetor = (setor) => `/outrasImagens/setores/${setor}.png`;
 
 const getRaridade = (custo) => {
   if (custo >= 50_000_000) return "lendario";
@@ -557,7 +559,7 @@ function useTilt3D({ maxTilt = 14, scale = 1.04, stiffness = 150, damping = 18, 
 // ============================================================
 const CardUpgradeMock = ({
   edificio = MOCK_EDIFICIO_BASE,
-  setor = "imobiliario",
+  setor = "agricultura",
   fatu = 8,
   redCusto = 5,
   dadosBase = MOCK_DADOS_BASE,
@@ -840,8 +842,19 @@ const CardUpgradeMock = ({
 
   // ── RENDER ───────────────────────────────────────────────
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: 20 }}>
-      {/* ====== PAINEL DE DEBUG ====== */}
+<div style={{
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: 16,
+  padding: 20,
+  userSelect: "none",
+  WebkitUserSelect: "none",
+  MozUserSelect: "none",
+  msUserSelect: "none",
+  WebkitTouchCallout: "none",
+  WebkitTapHighlightColor: "transparent",
+}}>      {/* ====== PAINEL DE DEBUG ====== */}
       <div style={{
         background: "#111", color: "#fff", padding: 12, borderRadius: 8,
         fontFamily: "monospace", fontSize: 11, width: 340,
@@ -915,6 +928,20 @@ const CardUpgradeMock = ({
       </div>
 
       {/* ====== CARD ====== */}
+      <div
+  aria-hidden="true"
+  style={{
+    position: "absolute",
+    inset: 0,
+    zIndex: 9998,
+    userSelect: "none",
+    WebkitUserSelect: "none",
+    MozUserSelect: "none",
+    msUserSelect: "none",
+    pointerEvents: "none", // 🔑 permite hover/tilt passarem
+    // cursor: "default",
+  }}
+/>
       <div
         ref={tilt.ref}
         {...tilt.handlers}
@@ -1016,30 +1043,36 @@ const CardUpgradeMock = ({
               />
 
               {/* Badge categoria — canto inferior direito */}
-              <div style={{
-                position: "absolute", bottom: 0, right: 0,
-                width: 50,
-                height: 50,
-                zIndex: 20,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                borderTopLeftRadius: 16,
-                borderBottomRightRadius: 16,
-                background: isEterno
-                  ? `linear-gradient(135deg, rgba(139,92,246,0.6), rgba(139,92,246,0.2), ${setorInfo.cor4}22)`
-                  : raridade === "lendario"
-                    ? `linear-gradient(135deg, #ffd700, #ffd70066, ${setorInfo.cor4})`
-                    : setorInfo.cor3,
-                filter: "brightness(0.8)",
-                boxShadow: isEterno
-                  ? "-2px -2px 10px rgba(139,92,246,0.4)"
-                  : "-2px -2px 10px rgba(0,0,0,0.3)",
-                transform: "translateZ(30px)",
-              }}>
-                {isEterno
-                  ? <span style={{ fontSize: 24, color: "#c4b5fd" }}>100</span>
-                  : <span style={{ fontSize: 22 }}>qtd</span>
-                }
-              </div>
+              {/* Badge categoria — canto inferior direito */}
+<div style={{
+  position: "absolute", bottom: 0, right: 0,
+  width: 50,
+  height: 50,
+  zIndex: 20,
+  display: "flex", alignItems: "center", justifyContent: "center",
+  borderTopLeftRadius: 16,
+  borderBottomRightRadius: 16,
+  background: isEterno
+    ? `linear-gradient(135deg, rgba(139,92,246,0.6), rgba(139,92,246,0.2), ${setorInfo.cor4}22)`
+    : raridade === "lendario"
+      ? `linear-gradient(135deg, #ffd700, #ffd70066, ${setorInfo.cor4})`
+      : setorInfo.cor3,
+  filter: "brightness(0.8)",
+  boxShadow: isEterno
+    ? "-2px -2px 10px rgba(139,92,246,0.4)"
+    : "-2px -2px 10px rgba(0,0,0,0.3)",
+  transform: "translateZ(30px)",
+}}>
+  <span style={{
+    fontSize: 18,
+    fontWeight: 800,
+    color: isEterno ? "#c4b5fd" : "#fff",
+    textShadow: "0 1px 4px rgba(0,0,0,0.6)",
+    lineHeight: 1,
+  }}>
+    {debugQtd}
+  </span>
+</div>
 
               {/* Badge raridade — topo direito */}
               <div style={{
@@ -1184,7 +1217,7 @@ const CardUpgradeMock = ({
                     {nomeAtual}
                   </h1>
 
-                  <h1 style={{
+                  {/* <h1 style={{
                     fontSize: 10,
                     color: isEterno ? "#e9d5ff" : "#fff",
                     textAlign: "center",
@@ -1201,46 +1234,29 @@ const CardUpgradeMock = ({
                     letterSpacing: isEterno ? ".1em" : ".04em",
                   }}>
                     Faturamento: + {debugFatu}%
-                  </h1>
+                  </h1> */}
                 </div>
 
                 {/* Rodapé */}
-                {isEterno ? (
-                  <div style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    width: "100%",
-                    marginTop: 8,
-                    gap: 8,
-                  }}>
-                    <div style={{
-                      padding: "4px 14px",
-                      borderRadius: 12,
-                      border: "1px solid rgba(139,92,246,0.4)",
-                      background: "rgba(76,29,149,0.15)",
-                      color: "#C4B5FD",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      letterSpacing: ".08em",
-                    }}>
-                      {formatarNumero(totalCusto)}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{
-                    padding: "2px 10px",
-                    borderRadius: 6,
-                    flexShrink: 0,
-                    background: setorInfo.cor1,
-                    color: setorInfo.cor4,
-                    border: `1px solid ${setorInfo.cor3}66`,
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}>
-                    {formatarNumero(totalCusto)}
-                  </div>
-                )}
+<div className="bg-white/10" style={{
+  padding: "2px 10px",
+  borderRadius: 6,
+  flexShrink: 0,
+  color: setorInfo.cor4,
+  border: `1px solid ${setorInfo.cor3}66`,
+  fontSize: 10,
+  fontWeight: 700,
+}}>
+  <img
+    src={getImageUrlSetor(debugSetor)}
+    alt={debugSetor}
+    style={{
+      width: "20px", height: "30px", objectFit: "contain",
+      filter: `drop-shadow(0 0 8px ${setorInfo.cor4}88)`,
+    }}
+    onError={(e) => { e.currentTarget.style.display = "none"; }}
+  />
+</div>
               </div>
             </div>
           </div>
