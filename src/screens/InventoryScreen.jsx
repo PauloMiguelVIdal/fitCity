@@ -405,7 +405,7 @@ const CartaCell = ({ carta, onExpand }) => {
   return (
     <div className="relative w-full">
       <div
-        className="absolute inset-0 rounded-2xl pointer-events-none"
+        className="absolute inset-0 rounded-xl pointer-events-none"
         style={{ background: config.cor2, opacity: 0.7, boxShadow: `0 4px 20px ${config.cor4}33` }}
       />
 
@@ -442,7 +442,7 @@ const CartaCell = ({ carta, onExpand }) => {
 
           {bloqueada && (
             <div
-              className="absolute inset-0 rounded-2xl flex items-center justify-center pointer-events-none"
+              className="absolute inset-0 rounded-xl flex items-center justify-center pointer-events-none"
               style={{ background: "rgba(0,0,0,0.8)", zIndex: 35 }}
             >
               <Lock size={26} color="rgba(255,255,255,0.35)" strokeWidth={2.5} />
@@ -451,10 +451,11 @@ const CartaCell = ({ carta, onExpand }) => {
         </div>
 
         {/* ====== PROGRESSO — altura reservada para alinhar as linhas do grid ====== */}
-        <div className="flex flex-col justify-center" style={{ marginTop: 4, gap: 2, minHeight: 34 }}>
+        {/* <div className="flex flex-col justify-center" style={{ marginTop: 4, gap: 2, minHeight: 34 }}> */}
+        <div className="flex flex-col justify-center" style={{ marginTop: 4, gap: 2, minHeight: 10 }}>
           {!bloqueada ? (
             <>
-              <div className="flex items-center justify-between" style={{ minHeight: 10 }}>
+              {/* <div className="flex items-center justify-between" style={{ minHeight: 10 }}>
                 {podeTrocar ? (
                   <div
                     className="flex items-center gap-0.5"
@@ -463,12 +464,12 @@ const CartaCell = ({ carta, onExpand }) => {
                     <span>✓</span><span>TROCA</span>
                   </div>
                 ) : <span />}
-              </div>
+              </div> */}
 
               <div className="flex items-center gap-1.5">
-                <div style={{ fontSize: 8, fontWeight: 900, color: corRaridade, textShadow: `0 0 3px ${corRaridade}88`, minWidth: 22, lineHeight: 1 }}>
+                {/* <div style={{ fontSize: 8, fontWeight: 900, color: corRaridade, textShadow: `0 0 3px ${corRaridade}88`, minWidth: 22, lineHeight: 1 }}>
                   {prog.labelNivel}
-                </div>
+                </div> */}
 
                 <div className="flex-1 relative overflow-hidden" style={{ height: 6, borderRadius: 3, background: "rgba(0,0,0,0.55)", border: `1px solid ${corRaridade}55` }}>
                   <div
@@ -480,14 +481,14 @@ const CartaCell = ({ carta, onExpand }) => {
                   />
                 </div>
 
-                <div style={{ fontSize: 8, fontWeight: 900, color: "#fff", textShadow: "0 1px 2px #000", minWidth: 38, textAlign: "right", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                {/* <div style={{ fontSize: 8, fontWeight: 900, color: "#fff", textShadow: "0 1px 2px #000", minWidth: 38, textAlign: "right", fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
                   {qtd}/{RARIDADE_POWERUP[raridade]?.qtdMaxima ?? 100}
-                </div>
+                </div> */}
               </div>
 
-              <div className="text-center" style={{ fontSize: 6.5, fontWeight: 700, color: "rgba(255,255,255,0.5)", lineHeight: 1 }}>
+              {/* <div className="text-center" style={{ fontSize: 6.5, fontWeight: 700, color: "rgba(255,255,255,0.5)", lineHeight: 1 }}>
                 {prog.textoProximoNivel}
-              </div>
+              </div> */}
             </>
           ) : (
             <div className="text-center" style={{ fontSize: 8, fontWeight: 900, color: "rgba(255,255,255,0.4)", lineHeight: 1 }}>
