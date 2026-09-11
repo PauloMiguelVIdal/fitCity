@@ -1,10 +1,9 @@
 // src/components/ModalShop.jsx
 import React, { useState, useCallback, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Coins, ShoppingCart, X } from "lucide-react";
 import logo from "../../public/outrasImagens/logo Joguinho.png";
-import CardPack from "./CardPack";
-
+import PackOpeningOverlay from "./Packopeningoverlay";
 // ─── DETECTAR DISPOSITIVO ──────────────────────────────────────────
 function useDeviceDetection() {
     const [isMobile, setIsMobile] = useState(false);
@@ -250,24 +249,7 @@ const gerarUpgrades = (cartas) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// 4. COMPONENTE PARTÍCULA
-// ═══════════════════════════════════════════════════════════════════
-const Particle = ({ x, y, dx, dy, color, delay }) => (
-    <motion.div
-        style={{
-            position: "absolute", left: x, top: y,
-            width: 8, height: 8, borderRadius: "50%",
-            background: color,
-            boxShadow: `0 0 20px ${color}, 0 0 60px ${color}44`,
-        }}
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: [0, 1, 0], scale: [0, 1.5, 0], x: [0, dx], y: [0, dy] }}
-        transition={{ duration: 1.4, delay, ease: "easeOut" }}
-    />
-);
-
-// ═══════════════════════════════════════════════════════════════════
-// 5. COMPONENTE VISUAL DO PACOTE
+// 4. COMPONENTE VISUAL DO PACOTE (miniatura na lista da loja)
 // ═══════════════════════════════════════════════════════════════════
 const PacoteVisual = ({ pacote, onClick }) => {
     const tema = {
@@ -329,39 +311,21 @@ const PacoteVisual = ({ pacote, onClick }) => {
 };
 
 // ═══════════════════════════════════════════════════════════════════
-// 6. COMPONENTE PRINCIPAL
+// 5. COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════════════════════════════
 export const ModalShop = ({ onCancelar, pacotes = [], moedas = 0 }) => {
     const { isMobile } = useDeviceDetection();
 
-    const [cartasSorteadas, setCartasSorteadas] = useState([]);
-    const [showResultado, setShowResultado] = useState(false);
     const [erro, setErro] = useState("");
-    const [packAberto, setPackAberto] = useState(null);
-    const [particles, setParticles] = useState([]);
     const [saldoLocal, setSaldoLocal] = useState(moedas);
+
+    // Quando preenchido, a loja inteira "some" e só o overlay de
+    // abertura é renderizado em tela cheia.
+    const [pacoteAbrindo, setPacoteAbrindo] = useState(null);
 
     useEffect(() => {
         setSaldoLocal(moedas);
     }, [moedas]);
-
-    const spawnParticles = useCallback((tema) => {
-        const colors = [tema.cor4, tema.cor3, "#ffffff", `${tema.cor4}aa`, `${tema.cor3}88`];
-        const count = isMobile ? 25 : 50;
-        const list = Array.from({ length: count }, (_, i) => {
-            const angle = Math.random() * 2 * Math.PI;
-            const dist = 60 + Math.random() * 150;
-            return {
-                id: i, x: "50%", y: "20%",
-                color: colors[Math.floor(Math.random() * colors.length)],
-                dx: Math.cos(angle) * dist,
-                dy: Math.sin(angle) * dist,
-                delay: Math.random() * 0.3,
-            };
-        });
-        setParticles(list);
-        setTimeout(() => setParticles([]), 1600);
-    }, [isMobile]);
 
     const comprarEAbirPacote = useCallback((pacote) => {
         const preco = pacote.preco || 0;
@@ -373,9 +337,6 @@ export const ModalShop = ({ onCancelar, pacotes = [], moedas = 0 }) => {
         }
 
         const pacoteComTema = obterCoresPacote(pacote);
-        setPackAberto(pacoteComTema);
-        setShowResultado(false);
-        setSaldoLocal((prev) => prev - preco);
 
         const cartasSorteadasRank = sortearCartasDoPacote(pacoteComTema);
         if (cartasSorteadasRank.length === 0) {
@@ -384,161 +345,55 @@ export const ModalShop = ({ onCancelar, pacotes = [], moedas = 0 }) => {
             return;
         }
 
-        const upgrades = gerarUpgrades(cartasSorteadasRank);
-        setCartasSorteadas(upgrades);
+        // Debita o saldo já na compra, antes da animação de abertura
+        setSaldoLocal((prev) => prev - preco);
 
-        spawnParticles({
-            cor1: pacoteComTema.cor1,
-            cor2: pacoteComTema.cor2,
-            cor3: pacoteComTema.cor3,
-            cor4: pacoteComTema.cor4,
+        // Enriquece cada carta com setor/setorLabel para o CardPack
+        const cartasComSetor = gerarUpgrades(cartasSorteadasRank).map((carta) => {
+            const setor = getSetor(carta.nome);
+            return { ...carta, setor, setorLabel: getSetorLabel(setor) };
         });
 
-        setShowResultado(true);
-    }, [saldoLocal, spawnParticles]);
+        // Dispara o overlay de abertura em tela cheia — a loja fica
+        // fora da árvore de render enquanto isso estiver setado.
+        setPacoteAbrindo({
+            nome: pacoteComTema.nome,
+            tema: {
+                cor1: pacoteComTema.cor1,
+                cor2: pacoteComTema.cor2,
+                cor3: pacoteComTema.cor3,
+                cor4: pacoteComTema.cor4,
+            },
+            cartas: cartasComSetor,
+        });
+    }, [saldoLocal]);
 
+    // Fecha a loja inteira (botão X)
     const handleFechar = () => {
-        setCartasSorteadas([]);
-        setShowResultado(false);
         setErro("");
-        setPackAberto(null);
-        setParticles([]);
+        setPacoteAbrindo(null);
         if (onCancelar) onCancelar();
     };
 
-    // ═════════════════════════════════════════════════════════════
-    // RESULTADO — GRID 3 COLUNAS, SEM HOVER, SEM SCROLL
-    // ═════════════════════════════════════════════════════════════
-    const renderResultado = () => {
-        if (!showResultado || cartasSorteadas.length === 0) return null;
-
-        const pacote = packAberto;
-        const tema = {
-            cor1: pacote?.cor1 || "#ffffff",
-            cor2: pacote?.cor2 || "#333333",
-            cor3: pacote?.cor3 || "#666666",
-            cor4: pacote?.cor4 || "#888888",
-        };
-
-        return (
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                style={{
-                    position: "relative",
-                    width: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: isMobile ? 16 : 22,
-                    borderRadius: 20,
-                    padding: isMobile ? "16px 12px 22px" : "22px",
-                    background: `radial-gradient(ellipse at 50% 0%, ${tema.cor1}33 0%, #07070f 90%)`,
-                    overflow: "hidden",
-                }}
-            >
-                {/* Glow decorativo */}
-                <div style={{
-                    position: "absolute", inset: 0, pointerEvents: "none",
-                    background: `radial-gradient(circle at 50% 20%, ${tema.cor4}11, transparent 70%)`,
-                }} />
-
-                {/* Partículas */}
-                <div style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-                    <AnimatePresence>
-                        {particles.map((p) => <Particle key={p.id} {...p} />)}
-                    </AnimatePresence>
-                </div>
-
-                {/* Título */}
-                <motion.div
-                    initial={{ opacity: 0, y: -20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    style={{ position: "relative", zIndex: 2, textAlign: "center" }}
-                >
-                    <h1 style={{
-                        color: "#fff",
-                        fontSize: isMobile ? 18 : 24,
-                        fontWeight: 700,
-                        fontFamily: "'Inter', sans-serif",
-                        textShadow: `0 0 60px ${tema.cor4}44`,
-                    }}>
-                        🎉 {pacote?.nome || ""}
-                    </h1>
-                </motion.div>
-
-                {/* Grid de cartas — 3 por linha, quebra automática */}
-                <div
-                    style={{
-                        position: "relative", zIndex: 2,
-                        display: "grid",
-                        gridTemplateColumns: "repeat(3, 1fr)",
-                        gap: isMobile ? 8 : 12,
-                        width: "100%",
-                    }}
-                >
-                    {cartasSorteadas.map((carta, i) => {
-                        const setorCarta = getSetor(carta.nome);
-                        const setorLabelCarta = getSetorLabel(setorCarta);
-
-                        return (
-                            <motion.div
-                                key={`${carta.nome}-${i}`}
-                                initial={{ opacity: 0, y: 30, scale: 0.9 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                transition={{
-                                    delay: 0.15 + i * 0.08,
-                                    duration: 0.4,
-                                    type: "spring",
-                                    stiffness: 300,
-                                    damping: 20,
-                                }}
-                                style={{
-                                    width: "100%",
-                                    aspectRatio: "3 / 4",
-                                }}
-                            >
-                                <CardPack
-                                    nome={carta.nome}
-                                    rank={carta.rank}
-                                    setor={setorCarta}
-                                    setorLabel={setorLabelCarta}
-                                />
-                            </motion.div>
-                        );
-                    })}
-                </div>
-
-                {/* Botão */}
-                <motion.button
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                    whileHover={{ scale: 1.05, boxShadow: `0 8px 40px ${tema.cor4}55` }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={handleFechar}
-                    style={{
-                        position: "relative", zIndex: 2,
-                        padding: isMobile ? "12px 36px" : "14px 48px",
-                        borderRadius: 30,
-                        border: `2px solid ${tema.cor4}44`,
-                        background: `linear-gradient(135deg, ${tema.cor4} 0%, ${tema.cor3} 100%)`,
-                        color: "#fff",
-                        fontSize: isMobile ? 12 : 14,
-                        fontWeight: 700,
-                        letterSpacing: ".1em",
-                        textTransform: "uppercase",
-                        cursor: "pointer",
-                        fontFamily: "'Inter', sans-serif",
-                        boxShadow: `0 4px 30px ${tema.cor4}66, 0 0 40px ${tema.cor4}33`,
-                    }}
-                >
-                    Entendido ✓
-                </motion.button>
-            </motion.div>
-        );
+    // Fecha só o overlay de abertura, voltando para a lista de pacotes
+    const handleFecharAbertura = () => {
+        setPacoteAbrindo(null);
     };
+
+    // ═════════════════════════════════════════════════════════════
+    // Se um pacote estiver sendo aberto, a loja não é renderizada —
+    // só o overlay de abertura, em tela cheia.
+    // ═════════════════════════════════════════════════════════════
+    if (pacoteAbrindo) {
+        return (
+            <PackOpeningOverlay
+                pacoteNome={pacoteAbrindo.nome}
+                tema={pacoteAbrindo.tema}
+                cartas={pacoteAbrindo.cartas}
+                onClose={handleFecharAbertura}
+            />
+        );
+    }
 
     // ═════════════════════════════════════════════════════════════
     // PACOTES
@@ -618,7 +473,7 @@ export const ModalShop = ({ onCancelar, pacotes = [], moedas = 0 }) => {
     };
 
     // ═════════════════════════════════════════════════════════════
-    // RENDER PRINCIPAL
+    // RENDER PRINCIPAL (loja)
     // ═════════════════════════════════════════════════════════════
     return (
         <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto">
@@ -659,18 +514,12 @@ export const ModalShop = ({ onCancelar, pacotes = [], moedas = 0 }) => {
                 </div>
 
                 <div className="max-h-[60vh] overflow-y-auto pr-1">
-                    {!showResultado ? (
-                        <>
-                            {erro && (
-                                <div className="mb-2 p-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 text-center text-xs">
-                                    {erro}
-                                </div>
-                            )}
-                            {renderPacotes()}
-                        </>
-                    ) : (
-                        renderResultado()
+                    {erro && (
+                        <div className="mb-2 p-1.5 rounded-lg bg-red-500/20 border border-red-500/30 text-red-300 text-center text-xs">
+                            {erro}
+                        </div>
                     )}
+                    {renderPacotes()}
                 </div>
             </motion.div>
         </div>
