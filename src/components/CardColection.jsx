@@ -1,6 +1,9 @@
 // src/components/CardColection.jsx
 import React, { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import {
+  X, Sparkles, Smartphone, Check, Factory, Store, Warehouse, Layers, Package,
+} from "lucide-react";
 
 // ============================================================
 // CONSTANTES
@@ -52,13 +55,22 @@ const SETORES_CONFIG = {
 };
 
 // ============================================================
-// CONFIG DE RARIDADE + POWER-UP POR RARIDADE
+// CONFIG DE RARIDADE + POWER-UP
 // ============================================================
 const RARIDADE_POWERUP = {
   comum:    { quantidadeMinimaNv2: 20, quantidadeMinimaNv3: 50, qtdMaxima: 100 },
   raro:     { quantidadeMinimaNv2: 15, quantidadeMinimaNv3: 40, qtdMaxima: 80 },
   epico:    { quantidadeMinimaNv2: 10, quantidadeMinimaNv3: 20, qtdMaxima: 50 },
   lendario: { quantidadeMinimaNv2: 2,  quantidadeMinimaNv3: 5,  qtdMaxima: 10 },
+};
+
+// Cores usadas na HUD (contraste garantido — independente das cores internas do card)
+const RARIDADE_COR_HUD = {
+  comum: "#9CA3AF",
+  raro: "#9944ff",
+  epico: "#ff9933",
+  lendario: "#ffd700",
+  eterno: "#c4b5fd",
 };
 
 const RANK_PARA_RARIDADE = { S: "lendario", A: "epico", B: "raro", C: "comum" };
@@ -358,7 +370,7 @@ const AuraEterno = () => (
 // ============================================================
 // HOOK: TILT 3D
 // ============================================================
-function useTilt3D({ maxTilt = 14, scale = 1.04, stiffness = 150, damping = 18, gyroSensibilidade = 10 } = {}) {
+function useTilt3D({ maxTilt = 1000, scale = 1.04, stiffness = 180, damping = 18, gyroSensibilidade = 25 } = {}) {
   const ref = useRef(null);
   const x = useMotionValue(0.5);
   const y = useMotionValue(0.5);
@@ -372,6 +384,7 @@ function useTilt3D({ maxTilt = 14, scale = 1.04, stiffness = 150, damping = 18, 
 
   const [gyroAtivo, setGyroAtivo] = useState(false);
   const [precisaPermissao, setPrecisaPermissao] = useState(false);
+  const [gyroSuportado, setGyroSuportado] = useState(true);
   const orientacaoBase = useRef(null);
 
   const handleMouseMove = useCallback((e) => {
@@ -428,15 +441,25 @@ function useTilt3D({ maxTilt = 14, scale = 1.04, stiffness = 150, damping = 18, 
     const TemAPI = typeof window !== "undefined" && typeof DeviceOrientationEvent !== "undefined";
     const ehTouch = typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
     const precisaPedirPermissao = TemAPI && typeof DeviceOrientationEvent.requestPermission === "function";
-    if (ehTouch && precisaPedirPermissao) setPrecisaPermissao(true);
-    else if (ehTouch && TemAPI) ligarListenerGiro();
+
+    // ✅ Detecta se o dispositivo suporta giroscópio
+    if (!TemAPI) {
+      setGyroSuportado(false);
+    }
+
+    if (ehTouch && precisaPedirPermissao) {
+      setPrecisaPermissao(true);
+    } else if (ehTouch && TemAPI) {
+      ligarListenerGiro();
+    }
+
     return () => window.removeEventListener("deviceorientation", handleOrientation);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {
     ref, rotateX, rotateY, glareX, glareY, isHover, scale,
-    gyroAtivo, precisaPermissao, ativarGiroscopio,
+    gyroAtivo, precisaPermissao, ativarGiroscopio, gyroSuportado,
     handlers: { onMouseMove: handleMouseMove, onMouseEnter: handleMouseEnter, onMouseLeave: handleMouseLeave },
   };
 }
@@ -454,8 +477,8 @@ const CardColection = ({
   cor3,
   cor4,
   setorLabel,
+  setorIcon: SetorIconProp,
   edificio,
-  // controle externo
   expandida = false,
   onClose,
 }) => {
@@ -464,6 +487,7 @@ const CardColection = ({
 
   const setorInfo = SETORES_CONFIG[debugSetor] || SETORES_CONFIG.outros;
   const nomeAtual = nome ?? edificio?.nome ?? "Edifício";
+  const SetorIcon = SetorIconProp || Package;
 
   // ── FULLSCREEN ───────────────────────────────────────────
   const [isFullscreenLocal, setIsFullscreenLocal] = useState(false);
@@ -499,6 +523,9 @@ const CardColection = ({
   const isVenda = categoriaEdificio === "venda";
   const isPassiva = categoriaEdificio === "passiva";
 
+  const categoriaLabel = isEstoque ? "Estoque" : isProducao ? "Produção" : isVenda ? "Venda" : "Passiva";
+  const CategoriaIcon = isEstoque ? Warehouse : isProducao ? Factory : isVenda ? Store : Layers;
+
   // ── RARIDADE + POWER-UP ──────────────────────────────────
   const raridadeBase = RARIDADE_POWERUP[raridadeProp] ? raridadeProp : "comum";
   const powerUpConfig = RARIDADE_POWERUP[raridadeBase];
@@ -528,6 +555,27 @@ const CardColection = ({
   }), [setorInfo]);
 
   const rConfig = RARIDADE_CONFIG[raridade];
+  const corNivelHUD = RARIDADE_COR_HUD[raridade] || RARIDADE_COR_HUD.comum;
+
+  // ── PROGRESSO (usado na HUD do fullscreen) ───────────────
+  const progressInfo = useMemo(() => {
+    if (debugQtd >= qtdMaxima) {
+      return { labelNivel: "MAX", atual: qtdMaxima, max: qtdMaxima, texto: "Nível máximo alcançado" };
+    }
+    if (debugQtd >= quantidadeMinimaNv3) {
+      const falta = qtdMaxima - debugQtd;
+      return { labelNivel: "Nv 3", atual: debugQtd - quantidadeMinimaNv3, max: qtdMaxima - quantidadeMinimaNv3, texto: `Faltam ${falta} para o nível máximo` };
+    }
+    if (debugQtd >= quantidadeMinimaNv2) {
+      const falta = quantidadeMinimaNv3 - debugQtd;
+      return { labelNivel: "Nv 2", atual: debugQtd - quantidadeMinimaNv2, max: quantidadeMinimaNv3 - quantidadeMinimaNv2, texto: `Faltam ${falta} para o Nv 3` };
+    }
+    const falta = quantidadeMinimaNv2 - debugQtd;
+    return { labelNivel: "Nv 1", atual: debugQtd, max: quantidadeMinimaNv2, texto: `Faltam ${falta} para o Nv 2` };
+  }, [debugQtd, quantidadeMinimaNv2, quantidadeMinimaNv3, qtdMaxima]);
+
+  const progressPct = Math.min(100, (progressInfo.atual / progressInfo.max) * 100);
+  const podeTrocar = debugQtd >= 11;
 
   // ── GRADIENTE DE NÍVEL ───────────────────────────────────
   const gradientLevel = useMemo(() => {
@@ -603,18 +651,12 @@ const CardColection = ({
   }, [raridade, rConfig, isEterno]);
 
   // ── FUNDO TEMÁTICO ───────────────────────────────────────
-  // ✅ OPÇÃO 1: agora com zIndex: 2 e opacidade ligeiramente maior
-  // para não ser engolido pelo getGradient que fica por cima.
   const fundoTematico = useMemo(() => {
     if (isEterno) return null;
 
     const estiloBase = {
-      position: "absolute",
-      inset: 0,
-      overflow: "hidden",
-      pointerEvents: "none",
-      zIndex: 2,
-      borderRadius: "inherit",
+      position: "absolute", inset: 0, overflow: "hidden",
+      pointerEvents: "none", zIndex: 2, borderRadius: "inherit",
     };
 
     if (isProducao) {
@@ -710,6 +752,30 @@ const CardColection = ({
   // ── TILT 3D ──────────────────────────────────────────────
   const tilt = useTilt3D({ maxTilt: 14, scale: 1.04, stiffness: 150, damping: 18, gyroSensibilidade: 1 });
 
+  // 🔧 Fix: WebKit às vezes só composita elementos com transform 3D +
+  // backdrop-filter recém-inseridos no DOM depois de um evento real de
+  // toque/clique. Isso simula esse "empurrão" automaticamente ao abrir
+  // o fullscreen, sem depender do usuário tocar na tela.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const el = tilt.ref.current;
+    if (!el) return;
+
+    let raf2;
+    const raf1 = requestAnimationFrame(() => {
+      void el.getBoundingClientRect(); // força recálculo de layout/estilo
+      el.style.transform = "translateZ(0.01px)";
+      raf2 = requestAnimationFrame(() => {
+        el.style.transform = "";
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, [isFullscreen]);
+
   // ── RENDER ───────────────────────────────────────────────
   return (
     <div
@@ -738,8 +804,12 @@ const CardColection = ({
                 perspective: "1400px",
                 perspectiveOrigin: "50% 50%",
                 zIndex: 10000,
-                padding: 20,
+                // reserva espaço pro header e pro painel/botão fixos no rodapé,
+                // pra carta centralizada nunca ficar por trás da HUD
+                padding: "96px 20px 208px",
                 boxSizing: "border-box",
+                willChange: "transform",
+                WebkitBackfaceVisibility: "hidden",
               }
             : { position: "relative", width: "100%", height: "100%", perspective: "1200px", perspectiveOrigin: "50% 50%" }
         }
@@ -750,6 +820,7 @@ const CardColection = ({
             height: isFullscreen ? "min(104vw, 453px)" : "100%",
             position: "relative",
             transformStyle: "preserve-3d",
+            WebkitBackfaceVisibility: "hidden",
             background: isEterno ? "#0a0014" : getGradientByLevel,
             overflow: "visible",
             ...getBordaDinamica,
@@ -772,8 +843,6 @@ const CardColection = ({
               display: "flex", alignItems: "center", justifyContent: "center",
               background: getGradient, borderRadius: "inherit",
               transformStyle: "preserve-3d", overflow: "hidden", mixBlendMode: "normal",
-              // ✅ OPÇÃO 1: zIndex maior que o fundoTematico (2) para ficar por cima,
-              // mas com pointerEvents none não bloqueia o fundo.
               zIndex: 3,
             }}
           >
@@ -789,7 +858,7 @@ const CardColection = ({
                 }}
               />
 
-              {/* Badge quantidade — canto inferior direito */}
+              {/* Badge quantidade */}
               <div style={{
                 position: "absolute", bottom: 0, right: 0,
                 width: 50, height: 50, zIndex: 20,
@@ -813,7 +882,7 @@ const CardColection = ({
                 </span>
               </div>
 
-              {/* Badge raridade — topo direito */}
+              {/* Badge raridade */}
               <div style={{
                 position: "absolute",
                 top: isEterno ? 10 : 8, right: isEterno ? 10 : 8,
@@ -979,20 +1048,140 @@ const CardColection = ({
         />
       )}
 
-      {/* ====== BOTÃO FECHAR ====== */}
+      {/* ====== HUD SUPERIOR — fixa, não gira com a carta ======
+          Setor + categoria à esquerda, fechar à direita. */}
       {isFullscreen && (
-        <button
-          onClick={fecharFullscreen}
+        <div
           style={{
-            position: "fixed", top: 20, right: 20, zIndex: 10001,
-            width: 44, height: 44, borderRadius: 12,
-            border: "1px solid rgba(255,255,255,0.25)",
-            background: "rgba(0,0,0,0.55)", backdropFilter: "blur(8px)",
-            color: "#fff", fontSize: 20, fontWeight: 800, cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
+            position: "fixed", top: 0, left: 0, right: 0, zIndex: 10001,
+            display: "flex", alignItems: "flex-start", justifyContent: "space-between",
+            padding: "calc(20px + env(safe-area-inset-top)) 20px 0",
+            pointerEvents: "none",
           }}
-          aria-label="Fechar"
-        >✕</button>
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, pointerEvents: "auto" }}>
+            <div
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "6px 12px", borderRadius: 999,
+                background: `${setorInfo.cor2}55`,
+                border: `1px solid ${setorInfo.cor4}66`,
+                backdropFilter: "blur(8px)",
+                width: "fit-content",
+              }}
+            >
+                                      {/* <img
+                          src={getImageUrl(debugSetor)}
+                          alt={debugSetor}
+                          draggable={false}
+                          onDragStart={(e) => e.preventDefault()}
+                          style={{ width: "20px", height: "20px", objectFit: "contain", pointerEvents: "none" }}
+                          onError={(e) => { e.currentTarget.style.display = "none"; }}
+                        /> */}
+              <span style={{ fontSize: 12, fontWeight: 800, color: "#fff", letterSpacing: ".02em" }}>
+                {setorLabel || debugSetor}
+              </span>
+            </div>
+            {/* <div style={{ display: "flex", alignItems: "center", gap: 5, paddingLeft: 4 }}>
+              <CategoriaIcon size={11} color="rgba(255,255,255,0.55)" />
+              <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.55)" }}>
+                {categoriaLabel}
+              </span>
+            </div> */}
+          </div>
+
+          <button
+            onClick={(e) => { e.stopPropagation(); fecharFullscreen(); }}
+            style={{
+              pointerEvents: "auto",
+              width: 40, height: 40, borderRadius: 12,
+              border: "1px solid rgba(255,255,255,0.2)",
+              background: "rgba(0,0,0,0.5)", backdropFilter: "blur(8px)",
+              color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}
+            aria-label="Fechar"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      )}
+
+      {/* ====== HUD INFERIOR — fixa, não gira com a carta ======
+          Nível + progresso + quantidade + troca, e o botão de
+          Experiência Premium fixo no rodapé da tela. */}
+      {isFullscreen && (
+        <div
+          style={{
+            position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 10001,
+            display: "flex", flexDirection: "column", gap: 14,
+            padding: "18px 20px calc(20px + env(safe-area-inset-bottom))",
+            background: "linear-gradient(to top, rgba(5,2,10,0.92) 45%, transparent)",
+            pointerEvents: "none",
+          }}
+        >
+          <div style={{ pointerEvents: "auto", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 900, color: corNivelHUD, textShadow: `0 0 6px ${corNivelHUD}88` }}>
+                  {progressInfo.labelNivel}
+                </span>
+                {podeTrocar && (
+                  <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 9, fontWeight: 800, letterSpacing: ".04em", color: "#4ade80", textShadow: "0 0 4px #4ade8066" }}>
+                    <Check size={10} /> DISPONÍVEL P/ TROCA
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 900, color: "#fff", fontVariantNumeric: "tabular-nums" }}>
+                {debugQtd}/{qtdMaxima}
+              </span>
+            </div>
+
+            <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.1)", border: `1px solid ${corNivelHUD}44`, overflow: "hidden" }}>
+              <div style={{
+                height: "100%", width: `${progressPct}%`,
+                background: `linear-gradient(90deg, ${corNivelHUD}, ${corNivelHUD}cc)`,
+                boxShadow: `0 0 8px ${corNivelHUD}aa`,
+                borderRadius: 4,
+              }} />
+            </div>
+
+            <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
+              {progressInfo.texto}
+            </span>
+          </div>
+
+          {tilt.gyroSuportado && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!tilt.gyroAtivo) tilt.ativarGiroscopio();
+              }}
+              disabled={tilt.gyroAtivo}
+              style={{
+                pointerEvents: "auto",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                width: "100%", padding: "14px 20px", borderRadius: 999,
+                border: tilt.gyroAtivo ? "1px solid rgba(74,222,128,0.6)" : "1px solid rgba(255,255,255,0.18)",
+                background: tilt.gyroAtivo
+                  ? "linear-gradient(135deg, rgba(34,197,94,0.3), rgba(74,222,128,0.18))"
+                  : "linear-gradient(90deg, #F27405, #6411D9)",
+                color: tilt.gyroAtivo ? "#86efac" : "#fff",
+                fontSize: 13, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase",
+                boxShadow: tilt.gyroAtivo
+                  ? "0 4px 20px rgba(74,222,128,0.35)"
+                  : "0 4px 24px rgba(100,17,217,0.45), 0 2px 16px rgba(242,116,5,0.3)",
+                cursor: tilt.gyroAtivo ? "default" : "pointer",
+                transition: "all 0.3s ease",
+              }}
+              aria-label="Ativar experiência premium com giroscópio"
+            >
+              {tilt.gyroAtivo ? <Check size={16} /> : <Sparkles size={16} />}
+              <span>{tilt.gyroAtivo ? "Experiência Ativa" : "Ativar Experiência Premium"}</span>
+              {!tilt.gyroAtivo && <Smartphone size={16} />}
+            </button>
+          )}
+        </div>
       )}
 
       {/* ====== ESTILOS ====== */}

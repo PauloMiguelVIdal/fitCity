@@ -3,6 +3,8 @@ import React, { useMemo, useState, useRef, useCallback, useEffect } from "react"
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import imobiliario from '../../public/outrasImagens/setores/imobiliario.png'
 import { div } from "framer-motion/client";
+import { Maximize2 } from "lucide-react";
+
 // ============================================================
 // MOCK DE DADOS
 // ============================================================
@@ -1006,7 +1008,8 @@ const CardUpgradeMock = ({
                 transform: "translateZ(35px)",
               }}
               aria-label="Expandir"
-            >⛶</button>
+            >            <Maximize2 size={12} color="#fff" />
+</button>
           )}
 
           {/* ====== CONTEÚDO DO CARD ====== */}

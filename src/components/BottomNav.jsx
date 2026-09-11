@@ -11,7 +11,7 @@ const TABS = [
 
 export default function BottomNav({ active, onChange }) {
   return (
-    <footer className="absolute bottom-0 left-0 right-0 z-10 bg-white/5 backdrop-blur-xl border-t border-white/10 px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.3)]">
+    <footer className="absolute bottom-0 left-0 right-0 z-50 bg-white/5 backdrop-blur-xl border-t border-white/10 px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.3)]">
       <div className="flex w-full justify-around items-center">
         {TABS.map(({ id, label, Icon }) => {
           const isActive = active === id
