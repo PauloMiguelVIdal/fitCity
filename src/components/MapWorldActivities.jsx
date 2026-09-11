@@ -5,104 +5,31 @@ import { ContactShadows, OrbitControls, Html } from '@react-three/drei'
 import { defineHex, Grid, spiral } from 'honeycomb-grid'
 import * as THREE from 'three'
 import { BuildingModel } from './BuildingModel'
-import { resolverModeloSede, MODELOS, EDIFICIO_PARA_MODELO } from './BuildingModels'
+import { resolverModeloSede, MODELOS, EDIFICIO_PARA_MODELO, PORTES_ORDENADOS } from './BuildingModels'
 import { useFrame } from '@react-three/fiber'
 import { useGraphicsConfig } from './GraphicsConfigContext'
 import { calcularMoedas } from '../utils/atividades'
 import { avaliarAtividade } from '../utils/atividadeModel'
-
+import { Coins, TrendingUp } from 'lucide-react'
 
 const HEX_SIZE = 0.6
 
 // =============================================
+// CONSTANTE: chave do localStorage
+// =============================================
+const STORAGE_PREFIX = 'fitcity_moedas_'
+const STORAGE_PORTE = 'fitcity_porte_sede'
+
+// =============================================
 // MAPEAMENTO DE EDIFÍCIOS POR NÍVEL DE MOEDAS
 // =============================================
-//
-// Nível 1: 1-5 moedas
-// Nível 2: 6-20 moedas
-// Nível 3: 21-40 moedas
-// Nível 4: 41-60 moedas
-// Nível 5: 61-80 moedas
-// Nível 6: 81+ moedas
-//
-// =============================================
 const EDIFICIOS_POR_NIVEL = {
-  1: {
-    edificios: [
-      // { nome: 'Campo De Estocagem', setor: 'agricultura' },
-      // { nome: 'Depósito De Resíduos Orgânicos', setor: 'agricultura' },
-      { nome: 'Plantação De Vegetais', setor: 'agricultura' },
-    ],
-    cor1: '#003816',
-    cor2: '#1A5E2A',
-    cor3: '#0C9123',
-    cor4: '#4CAF50',
-    label: 'Nível 1',
-  },
-  2: {
-    edificios: [
-      // { nome: 'Armazém', setor: 'agricultura' },
-      // { nome: 'Serraria', setor: 'agricultura' },
-      // { nome: 'Área Florestal', setor: 'agricultura' },
-      // { nome: 'Fazenda Administrativa', setor: 'agricultura' },
-      { nome: 'Granja De Aves', setor: 'agricultura' },
-   
-
-
-    ],
-    cor1: '#003816',
-    cor2: '#1A5E2A',
-    cor3: '#0C9123',
-    cor4: '#4CAF50',
-    label: 'Nível 2',
-  },
-  3: {
-    edificios: [
-      // { nome: 'Pomares', setor: 'agricultura' },
-      // { nome: 'Silo', setor: 'agricultura' },
-      { nome: 'Fazenda De Vacas', setor: 'agricultura' },
-    ],
-    cor1: '#003816',
-    cor2: '#1A5E2A',
-    cor3: '#0C9123',
-    cor4: '#4CAF50',
-    label: 'Nível 3',
-  },
-  4: {
-    edificios: [
-      { nome: 'Criação De Ovinos', setor: 'agricultura' },
-    ],
-    cor1: '#003816',
-    cor2: '#1A5E2A',
-    cor3: '#0C9123',
-    cor4: '#4CAF50',
-    label: 'Nível 4',
-  },
-  5: {
-    edificios: [
-               { nome: 'Cooperativa Agrícola', setor: 'agricultura' },
-      // { nome: 'Plantação De Eucalipto', setor: 'agricultura' },
-    ],
-    cor1: '#003816',
-    cor2: '#1A5E2A',
-    cor3: '#0C9123',
-    cor4: '#4CAF50',
-    label: 'Nível 5',
-  },
-  6: {
-    edificios: [
-                        { nome: 'Centro De Comércio De Plantações', setor: 'agricultura' },
-
-      // { nome: 'Plantação De Grãos', setor: 'agricultura' },
-      // { nome: 'Plantação De Plantas Medicinais', setor: 'agricultura' },
-      // { nome: 'Terreno De Mineração', setor: 'agricultura' },
-    ],
-    cor1: '#003816',
-    cor2: '#1A5E2A',
-    cor3: '#0C9123',
-    cor4: '#4CAF50',
-    label: 'Nível 6',
-  },
+  1: { edificios: [{ nome: 'Plantação De Vegetais', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 1' },
+  2: { edificios: [{ nome: 'Granja De Aves', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 2' },
+  3: { edificios: [{ nome: 'Fazenda De Vacas', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 3' },
+  4: { edificios: [{ nome: 'Criação De Ovinos', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 4' },
+  5: { edificios: [{ nome: 'Cooperativa Agrícola', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 5' },
+  6: { edificios: [{ nome: 'Centro De Comércio De Plantações', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 6' },
 }
 
 // =============================================
@@ -118,7 +45,7 @@ const SETOR_CONFIG = {
 }
 
 // =============================================
-// FUNÇÃO PARA DETERMINAR NÍVEL BASEADO NAS MOEDAS
+// FUNÇÕES AUXILIARES
 // =============================================
 const getNivelPorMoedas = (moedas) => {
   if (moedas <= 5) return 1
@@ -129,18 +56,12 @@ const getNivelPorMoedas = (moedas) => {
   return 6
 }
 
-// =============================================
-// FUNÇÃO PARA ESCOLHER EDIFÍCIO ALEATÓRIO POR NÍVEL
-// =============================================
 const escolherEdificioPorNivel = (nivel) => {
   const config = EDIFICIOS_POR_NIVEL[nivel] || EDIFICIOS_POR_NIVEL[1]
   const edificios = config.edificios || EDIFICIOS_POR_NIVEL[1].edificios
   return edificios[Math.floor(Math.random() * edificios.length)]
 }
 
-// =============================================
-// FUNÇÕES DE VERIFICAÇÃO (COM CACHE)
-// =============================================
 const edificioEhComposto = (() => {
   const cache = new Map()
   return (nomeEdificio) => {
@@ -163,15 +84,104 @@ const edificioEhCluster = (() => {
   }
 })()
 
-// =============================================
-// CONSTANTES
-// =============================================
 const HEX_DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]]
 const vizinhosDeHex = (q, r) => HEX_DIRECTIONS.map(([dq, dr]) => `${q + dq},${r + dr}`)
 
 const hexToWorld = (hex, size) => ({
   x: size * 1.73 * (hex.q + hex.r / 2),
   z: size * 1.5 * hex.r,
+})
+
+// =============================================
+// 🔥 HELPER: lê / grava moeda no localStorage
+// =============================================
+function jaColetou(edificioId) {
+  if (typeof window === 'undefined') return false
+  try {
+    return window.localStorage.getItem(`${STORAGE_PREFIX}${edificioId}`) === '1'
+  } catch {
+    return false
+  }
+}
+
+function marcarColetado(edificioId) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(`${STORAGE_PREFIX}${edificioId}`, '1')
+  } catch {}
+}
+
+// =============================================
+// 🔥 HELPER: lê / grava porte da sede
+// =============================================
+function lerPorteSalvo() {
+  if (typeof window === 'undefined') return PORTES_ORDENADOS[0]
+  try {
+    const salvo = window.localStorage.getItem(STORAGE_PORTE)
+    if (salvo && PORTES_ORDENADOS.includes(salvo)) return salvo
+  } catch {}
+  return PORTES_ORDENADOS[0]
+}
+
+function salvarPorte(porte) {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(STORAGE_PORTE, porte)
+  } catch {}
+}
+
+// =============================================
+// 🔥 BADGE DE MOEDAS (só o ícone; some ao clicar)
+// =============================================
+const CoinsBadge = React.memo(({ edificioId, yOffset = 1.05, onColetar }) => {
+  const [coletado, setColetado] = useState(() => jaColetou(edificioId))
+
+  if (coletado) return null
+
+  const handleClick = (e) => {
+    e.stopPropagation()
+    marcarColetado(edificioId)
+    setColetado(true)
+    onColetar?.(edificioId)
+  }
+
+  return (
+    <Html
+      position={[0, yOffset, 0]}
+      center
+      distanceFactor={10}
+      style={{ pointerEvents: 'none' }}
+      zIndexRange={[100, 0]}
+    >
+      <button
+        onClick={handleClick}
+        style={{
+          pointerEvents: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 34,
+          height: 34,
+          padding: 0,
+          borderRadius: '50%',
+          border: '1.5px solid #F2C230',
+          background: 'linear-gradient(135deg, #FFD966 0%, #F2A900 100%)',
+          boxShadow: '0 0 12px rgba(242,194,48,0.85), 0 1px 4px rgba(0,0,0,0.4)',
+          cursor: 'pointer',
+          userSelect: 'none',
+          transition: 'transform 0.12s ease',
+          transformOrigin: 'center',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.15)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
+        onPointerDown={(e) => { e.currentTarget.style.transform = 'scale(0.9)' }}
+        onPointerUp={(e) => { e.currentTarget.style.transform = 'scale(1.15)' }}
+        title="Clique para coletar"
+      >
+        <Coins size={18} strokeWidth={2.8} color="#3D2800" />
+      </button>
+    </Html>
+  )
 })
 
 // =============================================
@@ -212,11 +222,9 @@ const SkyDome = React.memo(({ dayProgress }) => {
             float h = vUv.y;
             vec3 gradient = mix(bottomColor, middleColor, smoothstep(0.0, 0.5, h));
             gradient = mix(gradient, topColor, smoothstep(0.3, 1.0, h));
-            
             float sunset = uProgress * 0.6;
             vec3 sunsetColor = vec3(1.0, 0.4, 0.1);
             gradient = mix(gradient, sunsetColor, sunset * (1.0 - h));
-            
             float alpha = smoothstep(0.0, 0.1, h) * 0.95;
             gl_FragColor = vec4(gradient, alpha);
           }
@@ -262,13 +270,10 @@ const Ocean = React.memo(() => {
             float wave1 = sin(st.x + uTime * 0.5) * cos(st.y + uTime * 0.3) * 0.5 + 0.5;
             float wave2 = sin(st.y - uTime * 0.4) * cos(st.x - uTime * 0.2) * 0.5 + 0.5;
             float waveStrength = mix(wave1, wave2, 0.5);
-            
             vec3 finalColor = mix(uColorDeep, uColorBase, waveStrength);
             float alpha = mix(0.15, 0.5, waveStrength);
-            
             float dist = distance(vUv, vec2(0.5, 0.5)) * 2.0;
             alpha = mix(alpha, 1.0, smoothstep(0.95, 1.0, dist));
-            
             gl_FragColor = vec4(finalColor, alpha);
           }
         `}
@@ -318,16 +323,15 @@ const HexBase = React.memo(({ corTopo = '#5a9e44', config = {} }) => {
 })
 
 // =============================================
-// HEX TILE (com intensidade)
+// HEX TILE (com badge de moeda)
 // =============================================
-const HexTile = React.memo(({ hex, building, onClick, selected, moveMode, config = {} }) => {
+const HexTile = React.memo(({ hex, building, onClick, selected, moveMode, config = {}, onColetarMoeda }) => {
   const { x, z } = hexToWorld(hex, HEX_SIZE)
   
   const handleClick = useCallback(() => {
     onClick(hex)
   }, [onClick, hex])
   
-  // Determina a cor do topo baseada no setor do edifício
   const corTopo = building ? SETOR_CONFIG[building.setor]?.cor3 : undefined
   
   return (
@@ -338,21 +342,36 @@ const HexTile = React.memo(({ hex, building, onClick, selected, moveMode, config
       <HexBase corTopo={corTopo} config={config} />
       
       {building && (
-        <BuildingModel
-          nomeEdificio={building.nome}
-          corFallback={SETOR_CONFIG[building.setor]?.cor4 || '#888888'}
-          posicaoBase={[0, 0.22, 0]}
-          graphicsConfig={config}
-        />
+        <>
+          <BuildingModel
+            nomeEdificio={building.nome}
+            corFallback={SETOR_CONFIG[building.setor]?.cor4 || '#888888'}
+            posicaoBase={[0, 0.22, 0]}
+            graphicsConfig={config}
+          />
+          <CoinsBadge
+            edificioId={building.id}
+            yOffset={1.05}
+            onColetar={(id) => onColetarMoeda?.(id)}
+          />
+        </>
       )}
     </group>
   )
 })
 
 // =============================================
-// HEX TILE CLUSTER SATELITE
+// HEX TILE CLUSTER SATELITE (com badge de moeda)
 // =============================================
-const HexTileClusterSatelite = React.memo(({ hex, corTopo, modeloId, corFallback, config = {} }) => {
+const HexTileClusterSatelite = React.memo(({ 
+  hex, 
+  corTopo, 
+  modeloId, 
+  corFallback, 
+  config = {},
+  edificioDono,
+  onColetarMoeda,
+}) => {
   const { x, z } = hexToWorld(hex, HEX_SIZE)
   return (
     <group position={[x, 0, z]}>
@@ -366,12 +385,19 @@ const HexTileClusterSatelite = React.memo(({ hex, corTopo, modeloId, corFallback
           graphicsConfig={config}
         />
       )}
+      {edificioDono && (
+        <CoinsBadge
+          edificioId={edificioDono.id}
+          yOffset={1.05}
+          onColetar={(id) => onColetarMoeda?.(id)}
+        />
+      )}
     </group>
   )
 })
 
 // =============================================
-// CAMADA 4: SEDE
+// CAMADA 4: SEDE (🔥 agora recebe o porte atual)
 // =============================================
 const Sede = React.memo(({ nomeEmpresa, porte, config = {} }) => {
   const sedeConfig = useMemo(() => resolverModeloSede(porte), [porte])
@@ -422,6 +448,78 @@ const Lights = React.memo(({ config = {} }) => {
 })
 
 // =============================================
+// 🔥 PAINEL DE PORTE + BOTÃO EXPANDIR (fora do Canvas)
+// =============================================
+const PortePanel = ({ porte, onExpandir, podeExpandir }) => (
+  <div style={{
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    zIndex: 60,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+    pointerEvents: 'none',
+  }}>
+    {/* Label do porte atual */}
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(76,20,169,0.95), rgba(30,8,80,0.95))',
+      border: '1.5px solid rgba(199,159,255,0.6)',
+      boxShadow: '0 0 18px rgba(100,17,217,0.55), 0 2px 8px rgba(0,0,0,0.6)',
+      borderRadius: 10,
+      padding: '6px 14px',
+      color: '#fff',
+      fontWeight: 800,
+      fontSize: 13,
+      letterSpacing: '0.06em',
+      textTransform: 'uppercase',
+      textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+      whiteSpace: 'nowrap',
+      textAlign: 'center',
+    }}>
+      🏢 {porte}
+    </div>
+
+    {/* Botão Expandir */}
+    {podeExpandir && (
+      <button
+        onClick={onExpandir}
+        style={{
+          pointerEvents: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          padding: '8px 14px',
+          borderRadius: 10,
+          border: '1px solid #F2C230',
+          background: 'linear-gradient(135deg, #F27405 0%, #8B3D00 100%)',
+          boxShadow: '0 0 14px rgba(242,116,5,0.6), 0 2px 6px rgba(0,0,0,0.4)',
+          color: '#fff',
+          fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+          fontWeight: 800,
+          fontSize: 12,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          cursor: 'pointer',
+          userSelect: 'none',
+          transition: 'transform 0.12s ease',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
+        onPointerDown={(e) => { e.currentTarget.style.transform = 'scale(0.96)' }}
+        onPointerUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)' }}
+        title="Expandir para o próximo porte"
+      >
+        <TrendingUp size={16} strokeWidth={2.8} />
+        Expandir Sede
+      </button>
+    )}
+  </div>
+)
+
+// =============================================
 // TIPOS DE ATIVIDADE PERMITIDOS
 // =============================================
 const TIPOS_PERMITIDOS = ['corrida', 'musculacao', 'caminhada']
@@ -433,21 +531,33 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
   const { config: graphicsConfig } = useGraphicsConfig()
 
   const nomeEmpresa = 'Minha Cidade'
-  const porte = 'Micro Empresa'
+
+  // 🔥 NOVO: estado do porte da sede (persiste no localStorage)
+  const [porte, setPorte] = useState(() => lerPorteSalvo())
 
   const [selectedKey, setSelectedKey] = useState(null)
   const [dayProgress, setDayProgress] = useState(0)
   const [moveMode, setMoveMode] = useState(false)
 
+  // 🔥 Expande para o próximo porte da lista
+  const handleExpandirSede = useCallback(() => {
+    setPorte(prev => {
+      const idx = PORTES_ORDENADOS.indexOf(prev)
+      const proximo = PORTES_ORDENADOS[Math.min(idx + 1, PORTES_ORDENADOS.length - 1)]
+      salvarPorte(proximo)
+      return proximo
+    })
+  }, [])
+
+  const podeExpandir = porte !== PORTES_ORDENADOS[PORTES_ORDENADOS.length - 1]
+
   // ── Edifícios ativos baseados nas moedas ──────────────────
   const edificiosAtivos = useMemo(() => {
-    // Filtra apenas os tipos permitidos
     const atividadesFiltradas = atividades.filter(a => 
       TIPOS_PERMITIDOS.includes(a.tipo)
     )
 
     return atividadesFiltradas.map((atividade, idx) => {
-      // Calcula as moedas da atividade
       const moedas = calcularMoedas(atividade)
       const nivel = getNivelPorMoedas(moedas)
       const edificio = escolherEdificioPorNivel(nivel)
@@ -521,7 +631,7 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
     const proximoLivre = (predicado = null) => {
       for (const k of keys) {
         if (k === '0,0') continue
-        if (posOcupadas.has(k)) continue
+        if (posOcupadas.has(k)) continue        
         if (predicado && !predicado(k)) continue
         return k
       }
@@ -583,6 +693,7 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
             corTopo: cor,
             corFallback: corFall,
             modeloId: defSats[i]?.modeloId ?? null,
+            edificioDono: ed,
           }
         }
       })
@@ -613,9 +724,22 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
     }
   }, [moveMode, posicoes, edificioPorId, onSelecionarAtividade])
 
+  // 🔥 Callback: chamado ao coletar moeda
+  const handleColetarMoeda = useCallback((edificioId) => {
+    // console.log(`+1 moeda no edifício ${edificioId}`)
+  }, [])
+
   // ── Render ──
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden',backgroundColor:'#350973' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden', backgroundColor: '#350973' }}>
+      
+      {/* 🔥 Painel de porte + botão Expandir */}
+      <PortePanel
+        porte={porte}
+        onExpandir={handleExpandirSede}
+        podeExpandir={podeExpandir}
+      />
+
       <Canvas 
         frameloop="demand"
         shadows={graphicsConfig.shadows}
@@ -639,9 +763,10 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
         <Lights config={graphicsConfig} />
 
         <group>
+          {/* 🔥 Sede recebe o porte atual — troca o modelo 3D */}
           <Sede nomeEmpresa={nomeEmpresa} porte={porte} config={graphicsConfig} />
 
-          {Object.entries(satelites).map(([key, { corTopo, modeloId, corFallback }]) => {
+          {Object.entries(satelites).map(([key, { corTopo, modeloId, corFallback, edificioDono }]) => {
             if (key === '0,0') return null
             const hex = hexMap.get(key)
             if (!hex) return null
@@ -653,6 +778,8 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
                 modeloId={modeloId}
                 corFallback={corFallback}
                 config={graphicsConfig}
+                edificioDono={edificioDono}
+                onColetarMoeda={handleColetarMoeda}
               />
             )
           })}
@@ -669,6 +796,7 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
                 selected={key === selectedKey}
                 moveMode={moveMode}
                 config={graphicsConfig}
+                onColetarMoeda={handleColetarMoeda}
               />
             )
           })}

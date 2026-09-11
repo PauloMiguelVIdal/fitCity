@@ -2435,10 +2435,22 @@ export const EDIFICIO_PARA_MODELO = {
   "Usina De Fusão Nuclear": 530,
 }
 
+export const PORTES_ORDENADOS = [
+  'Micro Empresa',
+  'Sociedade Limitada',
+  'Empresa Regional',
+  'Companhia Local',
+  'Empresa Estadual',
+  'Companhia Nacional',
+  'Corporação Multissetorial',
+  'Grupo Empresarial',
+  'Conglomerado Global',
+  'Mega Holding',
+]
+
 // ─────────────────────────────────────────────────────────────
 //  MODELOS_SEDE — edifício central por porte
 // ─────────────────────────────────────────────────────────────
-
 export const MODELOS_SEDE = {
   'Micro Empresa': {
     pacote: 'kenney_city-kit-commercial_2.1',
@@ -2492,11 +2504,12 @@ export const MODELOS_SEDE = {
   },
 }
 
+// 🔥 CORRIGIDO: agora usa o porte recebido (fallback para 'Micro Empresa')
 export function resolverModeloSede(classificacaoPorte) {
-  const edificio =  MODELOS_SEDE['Mega Holding']
+  const edificio = MODELOS_SEDE[classificacaoPorte] || MODELOS_SEDE['Micro Empresa']
   const pacoteEdificio = PACOTES[edificio.pacote]
 
-  // Base fixa — modelo 6 (stone-rocks / terreno de mineração)
+  // Base fixa — modelo 95 (stone terreno base)
   const base = MODELOS[95]
   const pacoteBase = PACOTES[base.pacote]
   const sBase = base.escala ?? 1
@@ -2534,7 +2547,6 @@ export function resolverModeloSede(classificacaoPorte) {
     ],
   }
 }
-
 
 // ─────────────────────────────────────────────────────────────
 //  HELPER — resolve config completa de um edifício pelo nome
