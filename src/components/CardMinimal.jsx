@@ -172,6 +172,7 @@ const CardMinimal = memo(function CardMinimal({
   return (
     <div
       className="card-no-select relative w-full aspect-[3/4] overflow-hidden flex flex-col items-center justify-between p-2"
+      onClick={handleExpandClick}
       style={{
         background: getGradient,
         ...borda,
@@ -185,7 +186,7 @@ const CardMinimal = memo(function CardMinimal({
       {onExpand && (
         <button
           type="button"
-          onClick={handleExpandClick}
+          
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
