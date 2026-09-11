@@ -1,4 +1,3 @@
-
 // src/screens/HomeScreen.jsx
 import { useState } from 'react'
 import {
@@ -13,7 +12,11 @@ import {
   Star,
   Zap,
   Home,
-  Store
+  Store,
+  CircleChevronRight,
+  Activity,
+  Gift,
+  Check
 } from 'lucide-react'
 
 import MapWorldFitCity from '../components/MapWorldCity'
@@ -41,84 +44,54 @@ export default function HomeScreen({
       nome: 'Pacote Bronze',
       preco: 15,
       icone: Package,
-
-      // Cores usadas também pelo ModalShop
       cor1: '#7A3F00',
       cor2: '#A65F16',
       cor3: '#D8892B',
       cor4: '#F2B866',
-
       corFundo: 'bg-gradient-to-b from-amber-700 to-amber-900',
       corIcone: 'text-amber-200',
       corTexto: 'text-amber-100',
-
       conteudo: '3 Cartas (100% Comuns)',
       descricao:
         'Acesso rápido e contínuo. Todo treino gera progresso imediato.',
-
       quantidade: 3,
-      probabilidades: {
-        S: 0,
-        A: 0,
-        B: 10,
-        C: 90
-      }
+      probabilidades: { S: 0, A: 0, B: 10, C: 90 }
     },
-
     {
       id: 'prata',
       nome: 'Pacote Prata',
       preco: 40,
       icone: Package,
-
       cor1: '#555555',
       cor2: '#858585',
       cor3: '#BDBDBD',
       cor4: '#F1F1F1',
-
       corFundo: 'bg-gradient-to-b from-gray-400 to-gray-600',
       corIcone: 'text-white',
       corTexto: 'text-white',
-
       conteudo: '5 Cartas (4 Comuns + 1 Rara Garantida)',
       descricao:
         'O pacote principal do jogo. Equilibra volume e garantia de carta superior.',
-
       quantidade: 5,
-      probabilidades: {
-        S: 2,
-        A: 8,
-        B: 24,
-        C: 66
-      }
+      probabilidades: { S: 2, A: 8, B: 24, C: 66 }
     },
-
     {
       id: 'ouro',
       nome: 'Pacote Ouro',
       preco: 90,
       icone: Package,
-
       cor1: '#7A5200',
       cor2: '#B8860B',
       cor3: '#E0AD2F',
       cor4: '#FFE38A',
-
       corFundo: 'bg-gradient-to-b from-yellow-500 to-yellow-700',
       corIcone: 'text-yellow-100',
       corTexto: 'text-yellow-100',
-
       conteudo: '5 Cartas (3 Comuns + 1 Rara + 1 Épica Garantida)',
       descricao:
         'Meta de médio/longo prazo. Incentiva o acúmulo de moedas e constância.',
-
       quantidade: 5,
-      probabilidades: {
-        S: 5,
-        A: 15,
-        B: 30,
-        C: 50
-      }
+      probabilidades: { S: 5, A: 15, B: 30, C: 50 }
     }
   ]
 
@@ -131,86 +104,42 @@ export default function HomeScreen({
       nome: 'Pacote Tech Indústria',
       preco: 5000,
       icone: Zap,
-
-      // IMPORTANTE:
-      // Esses IDs serão usados pelo ModalShop para
-      // mesclar automaticamente as cores dos setores.
       setoresIds: ['tecnologia', 'industria'],
-
-      corFundo:
-        'bg-gradient-to-r from-orange-600 via-orange-500 to-gray-700',
+      corFundo: 'bg-gradient-to-r from-orange-600 via-orange-500 to-gray-700',
       corIcone: 'text-white',
       corTexto: 'text-white',
-
       setores: 'Tecnologia + Indústria',
-
-      descricao:
-        'Cartas direcionadas para área urbana industrial e tecnológica.',
-
+      descricao: 'Cartas direcionadas para área urbana industrial e tecnológica.',
       quantidade: 4,
-
-      probabilidades: {
-        S: 2,
-        A: 8,
-        B: 24,
-        C: 66
-      }
+      probabilidades: { S: 2, A: 8, B: 24, C: 66 }
     },
-
     {
       id: 'imob-agro',
       nome: 'Pacote Imobiliário Agro',
       preco: 5000,
       icone: Home,
-
       setoresIds: ['imobiliario', 'agricultura'],
-
-      corFundo:
-        'bg-gradient-to-r from-blue-700 via-blue-500 to-green-600',
+      corFundo: 'bg-gradient-to-r from-blue-700 via-blue-500 to-green-600',
       corIcone: 'text-white',
       corTexto: 'text-white',
-
       setores: 'Imobiliário + Agricultura',
-
-      descricao:
-        'Cartas para expansão residencial e agrícola da sua cidade.',
-
+      descricao: 'Cartas para expansão residencial e agrícola da sua cidade.',
       quantidade: 4,
-
-      probabilidades: {
-        S: 2,
-        A: 8,
-        B: 24,
-        C: 66
-      }
+      probabilidades: { S: 2, A: 8, B: 24, C: 66 }
     },
-
     {
       id: 'comercio-energia',
       nome: 'Pacote Comércio Energia',
       preco: 5000,
       icone: Store,
-
       setoresIds: ['comercio', 'energia'],
-
-      corFundo:
-        'bg-gradient-to-r from-red-700 via-red-500 to-yellow-500',
+      corFundo: 'bg-gradient-to-r from-red-700 via-red-500 to-yellow-500',
       corIcone: 'text-white',
       corTexto: 'text-white',
-
       setores: 'Comércio + Energia',
-
-      descricao:
-        'Cartas para o setor comercial e de energia da metrópole.',
-
+      descricao: 'Cartas para o setor comercial e de energia da metrópole.',
       quantidade: 4,
-
-      probabilidades: {
-        S: 2,
-        A: 8,
-        B: 24,
-        C: 66
-      }
+      probabilidades: { S: 2, A: 8, B: 24, C: 66 }
     }
   ]
 
@@ -223,92 +152,42 @@ export default function HomeScreen({
       nome: 'Distrito Cyberpunk Neon',
       preco: 8500,
       icone: Zap,
-
-      // Customização possui identidade própria.
       cor1: '#24004F',
       cor2: '#6411D9',
       cor3: '#9B4DFF',
       cor4: '#F27405',
-
-      corFundo:
-        'bg-gradient-to-br from-purple-600 to-pink-600',
+      corFundo: 'bg-gradient-to-br from-purple-600 to-pink-600',
       corIcone: 'text-white',
       corTexto: 'text-white',
-
-      descricao:
-        'Skin Noturna + 4 Prédios Iluminados',
-
+      descricao: 'Skin Noturna + 4 Prédios Iluminados',
       quantidade: 5,
-
-      probabilidades: {
-        S: 5,
-        A: 15,
-        B: 30,
-        C: 50
-      }
+      probabilidades: { S: 5, A: 15, B: 30, C: 50 }
     },
-
     {
       id: 'esportivo',
       nome: 'Complexo Esportivo Eco',
       preco: 6000,
       icone: Star,
-
       cor1: '#064A32',
       cor2: '#087F5B',
       cor3: '#18B981',
       cor4: '#67E8F9',
-
-      corFundo:
-        'bg-gradient-to-br from-green-500 to-cyan-500',
+      corFundo: 'bg-gradient-to-br from-green-500 to-cyan-500',
       corIcone: 'text-white',
       corTexto: 'text-white',
-
-      descricao:
-        'Estádio Ecológico + Pistas + Árvores',
-
+      descricao: 'Estádio Ecológico + Pistas + Árvores',
       quantidade: 5,
-
-      probabilidades: {
-        S: 5,
-        A: 15,
-        B: 30,
-        C: 50
-      }
+      probabilidades: { S: 5, A: 15, B: 30, C: 50 }
     }
   ]
 
   // ============================================================
   // TODOS OS PACOTES
   // ============================================================
-  //
-  // NÃO sobrescrevemos cor1/cor2/cor3/cor4 aqui.
-  //
-  // Esse era o principal problema do código anterior:
-  //
-  // cor1: '#ffffff'
-  // cor2: '#3e3a44'
-  // cor3: '#fde4ce'
-  // cor4: '#1f014e'
-  //
-  // Como esses valores eram aplicados a todos os pacotes,
-  // o ModalShop recebia exatamente a mesma paleta.
-  //
   const todosOsPacotes = [
-    ...pacotesPrincipais.map((pacote) => ({
-      ...pacote,
-      categoria: 'principal'
-    })),
-
-    ...pacotesSetoriais.map((pacote) => ({
-      ...pacote,
-      categoria: 'setorial'
-    })),
-
-    ...pacotesCustomizacao.map((pacote) => ({
-      ...pacote,
-      categoria: 'customizacao'
-    }))
+    ...pacotesPrincipais.map((pacote) => ({ ...pacote, categoria: 'principal' })),
+    ...pacotesSetoriais.map((pacote) => ({ ...pacote, categoria: 'setorial' })),
+    ...pacotesCustomizacao.map((pacote) => ({ ...pacote, categoria: 'customizacao' }))
   ]
 
   // ============================================================
@@ -321,345 +200,277 @@ export default function HomeScreen({
     meta: 100
   }
 
-  const moedas = atividades.reduce(
-    (soma, a) => soma + (a.moedas || 0),
-    0
-  )
-
-  const resumoHoje = resumoDoPeriodo(
-    atividades.filter((a) => isHoje(a.data))
-  )
-
+  const moedas = atividades.reduce((soma, a) => soma + (a.moedas || 0), 0)
+  const resumoHoje = resumoDoPeriodo(atividades.filter((a) => isHoje(a.data)))
   const recentes = atividades.slice(0, 3)
 
   const statusKcal = resumoHoje.calorias || 482
   const statusTempo = resumoHoje.tempo || '1h 45min'
-  const statusDistancia =
-    resumoHoje.distancia?.toFixed(1) || '0.0'
+  const statusDistancia = resumoHoje.distancia?.toFixed(1) || '0.0'
 
   // ============================================================
-  // MINI PACOTES DA HOME
+  // DADOS DA ATIVIDADE SEMANAL (MOCK)
   // ============================================================
-  //
-  // Aqui usamos apenas uma representação pequena.
-  // O clique abre a loja completa.
-  //
-  const miniPacotes = [
-    {
-      id: 'bronze',
-      nome: 'Bronze',
-      icone: Package,
-      cor:
-        'bg-gradient-to-b from-[#A65F16] to-[#5C2E00]'
-    },
-    {
-      id: 'prata',
-      nome: 'Prata',
-      icone: Package,
-      cor:
-        'bg-gradient-to-b from-[#D0D0D0] to-[#666666]'
-    },
-    {
-      id: 'ouro',
-      nome: 'Ouro',
-      icone: Package,
-      cor:
-        'bg-gradient-to-b from-[#E0AD2F] to-[#765000]'
-    }
+  const semana = [
+    { dia: 'S', label: 'Hoje', xp: 15, concluido: true },
+    { dia: 'T', label: 'Ontem', xp: 21, concluido: true },
+    { dia: 'Q', label: 'Anteontem', xp: 17, concluido: true },
+    { dia: 'Q', label: 'Qui', xp: 0, concluido: false },
+    { dia: 'S', label: 'Sex', xp: 0, concluido: false },
+    { dia: 'S', label: 'Sáb', xp: 0, concluido: false },
+    { dia: 'D', label: 'Dom', xp: 0, concluido: false }
   ]
 
+  const progressoSemanal = 3
+  const metaSemanal = 5
+
   return (
-    <div className="relative px-4 pt-6 flex flex-col gap-4 text-white min-h-screen pb-24">
+    <div className="relative px-3 sm:px-4 pt-4 sm:pt-6 flex flex-col gap-3 sm:gap-4 text-white min-h-screen pb-12">
 
       {/* Glow superior */}
-      <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-fitcity-accent/30 blur-[80px]" />
 
       {/* ======================================================
           HEADER
+          ====================================================== */}
+      <div className="relative flex items-center justify-between z-10 gap-2 w-full">
+
+        {/* ======================================================
+      CIDADE CONQUISTADA
       ====================================================== */}
-      <div className="relative flex items-center justify-between z-10">
+        <div className="relative w-full bg-fitcity-surface/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(100,17,217,0.35)] z-10">
+          <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-fitcity-accent/30 blur-[80px]" />
 
-        <div className="flex items-center gap-3">
-
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-fitcity-energy to-orange-600 flex items-center justify-center shadow-[0_4px_16px_rgba(242,116,5,0.5)]">
-            <Building2 size={22} className="text-white" />
+          {/* Mapa de fundo */}
+          <div className="absolute w-full inset-0 opacity-95 flex items-center justify-center">
+            <MapWorldFitCity />
           </div>
 
-          <div>
-            <h1 className="text-lg font-bold leading-none">
-              FitCity
-            </h1>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/60 pointer-events-none" />
 
-            <p className="text-[11px] text-white/50 mt-0.5">
-              Sua energia constrói o futuro
-            </p>
-          </div>
+          {/* AUMENTEI a altura mínima de 200/220 para 280/320 */}
+          <div className="relative p-3 sm:p-4 z-10 flex flex-col justify-between min-h-[320px] sm:min-h-[320px]">
 
-        </div>
+            {/* Topo: Título + Moedas */}
+            <div className="flex items-start justify-between mb-2 gap-2">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-br from-fitcity-energy to-orange-600 flex items-center justify-center shadow-[0_4px_16px_rgba(242,116,5,0.5)] shrink-0">
+                  <Building2 size={20} className="text-white sm:w-[22px] sm:h-[22px]" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-lg font-bold leading-none truncate">
+                    FitCity
+                  </h1>
+                  <span className="font-bold text-xs sm:text-sm">
 
-        <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-xl border border-white/10 rounded-full pl-3 pr-1.5 py-1.5 shadow-lg">
+                  </span>
+                  <p className="text-[10px] sm:text-[11px] text-white/80 mt-0.5 truncate">
+                    Nível {cidade.nivel}
+                  </p>
+                </div>
+              </div>
 
-          <Coins
-            size={16}
-            className="text-fitcity-energy"
-          />
+              <div className="flex items-center gap-1 sm:gap-1.5 bg-white/10 backdrop-blur-xl border border-white/10 rounded-full pl-2 sm:pl-3 pr-1 sm:pr-1.5 py-1 sm:py-1.5 shadow-lg shrink-0">
+                <Coins size={14} className="text-fitcity-energy sm:w-4 sm:h-4 shrink-0" />
+                <span className="font-bold text-xs sm:text-sm">
+                  {moedas.toLocaleString('pt-BR')}
+                </span>
+                <button
+                  onClick={() => onNavigate('inventario')}
+                  className="ml-0.5 sm:ml-1 bg-gradient-to-br from-fitcity-energy to-orange-600 rounded-full p-1 sm:p-1.5 shadow-[0_2px_10px_rgba(242,116,5,0.6)] shrink-0"
+                >
+                  <Plus size={12} className="text-white sm:w-[14px] sm:h-[14px]" />
+                </button>
+              </div>
+            </div>
 
-          <span className="font-bold text-sm">
-            {moedas.toLocaleString('pt-BR')}
-          </span>
-
-          <button
-            onClick={() => onNavigate('inventario')}
-            className="ml-1 bg-gradient-to-br from-fitcity-energy to-orange-600 rounded-full p-1.5 shadow-[0_2px_10px_rgba(242,116,5,0.6)]"
-          >
-            <Plus
-              size={14}
-              className="text-white"
-            />
-          </button>
-
-        </div>
-      </div>
-
-      {/* ======================================================
-          MINI LOJA
+            {/* ======================================================
+          STATUS UNIFICADO — Kcal | Tempo | Km
       ====================================================== */}
-      <div className="relative rounded-2xl p-4 bg-gradient-to-br from-orange-600 via-[#6411D9] to-[#350973] shadow-[0_10px_30px_rgba(110,11,249,0.35)] border border-white/10 z-10 overflow-hidden">
+            <div className="mt-auto mb-0">
+              <div className="bg-[#6411D9]/20 backdrop-blur-sm rounded-2xl border border-white/10 flex items-center justify-between overflow-hidden">
 
-        {/* Botão abrir loja */}
-        <button
-          onClick={() => setModalLojaAberto(true)}
-          className="relative w-full flex items-center justify-center gap-2 bg-gradient-to-r from-orange-600 to-[#F27405] rounded-full py-3.5 px-4 shadow-lg border border-orange-400/30 overflow-hidden transition-transform active:scale-[0.98] mb-4"
-        >
-
-          <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
-
-          <ShoppingCart
-            size={20}
-            className="relative text-white"
-          />
-
-          <span className="relative font-bold text-base tracking-wide">
-            ABRIR A LOJA
-          </span>
-
-        </button>
-
-        {/* Mini pacotes */}
-        <div className="grid grid-cols-3 gap-2">
-
-          {miniPacotes.map((pacote) => (
-            <button
-              key={pacote.id}
-              onClick={() => setModalLojaAberto(true)}
-              className="flex flex-col items-center gap-1 group"
-            >
-
-              <div
-                className={`
-                  relative w-full aspect-[3/4]
-                  rounded-lg
-                  flex flex-col items-center justify-center
-                  shadow-md
-                  border border-white/10
-                  overflow-hidden
-                  transition-transform
-                  group-active:scale-95
-                  ${pacote.cor}
-                `}
-              >
-
-                <div className="p-1.5 rounded-md bg-white/10">
-                  <pacote.icone
-                    size={20}
-                    className="text-white"
-                  />
+                {/* Kcal */}
+                <div className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 min-w-0">
+                  <Flame size={14} className="text-orange-400 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold truncate">
+                    {statusKcal} Kcal
+                  </span>
                 </div>
 
-                <div className="absolute bottom-1 right-1 bg-black/40 backdrop-blur-sm px-1 py-0.5 rounded text-[8px] font-bold">
-                  {pacote.nome}
+                {/* Divisor */}
+                <div className="w-px h-6 bg-white/10" />
+
+                {/* Tempo */}
+                <div className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 min-w-0">
+                  <Clock size={14} className="text-orange-400 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold truncate">
+                    {statusTempo}
+                  </span>
                 </div>
 
+                {/* Divisor */}
+                <div className="w-px h-6 bg-white/10" />
+
+                {/* Km */}
+                <div className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 min-w-0">
+                  <MapPin size={14} className="text-orange-400 sm:w-4 sm:h-4 shrink-0" />
+                  <span className="text-xs sm:text-sm font-bold truncate">
+                    {statusDistancia} Km
+                  </span>
+                </div>
               </div>
-
-            </button>
-          ))}
-
-        </div>
-      </div>
-
-      {/* ======================================================
-          CIDADE CONQUISTADA
-      ====================================================== */}
-      <div className="relative bg-fitcity-surface/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(100,17,217,0.35)] z-10">
-
-        <div className="absolute inset-0 opacity-80 flex items-center justify-center">
-          <MapWorldFitCity />
-        </div>
-
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/60 pointer-events-none" />
-
-        <div className="relative p-4 z-10 flex flex-col justify-between min-h-[220px]">
-
-          <div className="flex items-start justify-between mb-2">
-
-            <div>
-
-              <h2 className="text-xl font-bold leading-tight drop-shadow-md">
-                Sua cidade
-                <br />
-                conquistada
-              </h2>
-
-              <div className="mt-2 bg-orange-500/90 backdrop-blur-sm rounded-xl px-3 py-1.5 flex items-center gap-2 w-fit shadow-lg">
-
-                <Building2
-                  size={16}
-                  className="text-white"
-                />
-
-                <span className="font-bold text-sm">
-                  Nível {cidade.nivel}
-                </span>
-
-              </div>
-
             </div>
 
-            <div className="text-right mt-1">
-
-              <p className="text-xs text-white/80 font-medium drop-shadow-md">
-                Total de cartas
-              </p>
-
-              <p className="text-lg font-bold drop-shadow-md">
-                {cidade.progresso} / {cidade.meta}
-              </p>
-
-              <div className="h-1.5 w-24 rounded-full bg-white/20 mt-1 overflow-hidden ml-auto">
-
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-orange-400 to-fitcity-energy"
-                  style={{
-                    width: `${(cidade.progresso / cidade.meta) * 100}%`
-                  }}
-                />
-
-              </div>
-
-            </div>
+            {/* Botão Loja de Pacotes */}
 
           </div>
-
-          <div className="grid grid-cols-3 gap-2 mt-auto">
-
-            <div className="bg-white/10 backdrop-blur-md rounded-xl px-2 py-2 flex items-center justify-center gap-2 border border-white/5">
-
-              <Flame
-                size={14}
-                className="text-orange-400"
-              />
-
-              <div className="flex flex-col">
-
-                <span className="text-[10px] text-white/60 uppercase font-bold">
-                  Kcal
-                </span>
-
-                <span className="text-xs font-bold">
-                  {statusKcal}
-                </span>
-
-              </div>
-
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-md rounded-xl px-2 py-2 flex items-center justify-center gap-2 border border-white/5">
-
-              <Clock
-                size={14}
-                className="text-orange-400"
-              />
-
-              <div className="flex flex-col">
-
-                <span className="text-[10px] text-white/60 uppercase font-bold">
-                  Tempo Ativo
-                </span>
-
-                <span className="text-xs font-bold">
-                  {statusTempo}
-                </span>
-
-              </div>
-
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-md rounded-xl px-2 py-2 flex items-center justify-center gap-2 border border-white/5">
-
-              <MapPin
-                size={14}
-                className="text-orange-400"
-              />
-
-              <div className="flex flex-col">
-
-                <span className="text-[10px] text-white/60 uppercase font-bold">
-                  Km Distância
-                </span>
-
-                <span className="text-xs font-bold">
-                  {statusDistancia}
-                </span>
-
-              </div>
-
-            </div>
-
-          </div>
-
         </div>
       </div>
+      <button
+        onClick={() => setModalLojaAberto(true)}
+        className="relative flex items-center gap-2 sm:gap-3 w-full rounded-2xl p-3 sm:p-4 text-left overflow-hidden transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] group z-10"
+        style={{
+          background: "linear-gradient(135deg, #4C1D95 0%, #6411D9 50%, #7C3AED 100%)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          boxShadow: "0 10px 40px rgba(100, 17, 217, 0.45), inset 0 1px 0 rgba(255,255,255,0.15)",
+        }}
+      >
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
 
+        <div className="relative shrink-0">
+          <div className="absolute inset-0 bg-orange-500 rounded-xl blur-md opacity-60 animate-pulse" />
+          <div className="relative bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-2 sm:p-2.5 shadow-[0_4px_20px_rgba(234,88,12,0.6)]">
+            <ShoppingCart size={18} className="relative text-white sm:w-5 sm:h-5" />
+          </div>
+        </div>
+
+        <div className="relative flex-1 min-w-0">
+          <p className="font-semibold text-white text-xs sm:text-sm truncate">
+            Loja de Pacotes
+          </p>
+          <p className="text-[10px] sm:text-[11px] text-purple-100/80 truncate">
+            Compre pacotes e desbloqueie novas cartas
+          </p>
+        </div>
+
+        <CircleChevronRight
+          size={16}
+          className="relative text-white/70 transition-transform duration-300 group-hover:translate-x-1 shrink-0 sm:w-[18px] sm:h-[18px]"
+        />
+      </button>
       {/* ======================================================
-          REGISTRAR ATIVIDADE
+          REGISTRAR ATIVIDADE (FORA do card semanal)
       ====================================================== */}
       <button
         onClick={onRegistrar}
-        className="relative flex items-center justify-center gap-2 bg-gradient-to-r from-fitcity-energy to-orange-600 rounded-2xl py-3.5 font-semibold shadow-[0_10px_25px_rgba(242,116,5,0.45)] overflow-hidden z-10"
+        className="relative flex items-center justify-center gap-2 bg-gradient-to-r from-fitcity-energy to-orange-600 rounded-2xl py-3 sm:py-3.5 px-3 font-semibold shadow-[0_10px_25px_rgba(242,116,5,0.45)] overflow-hidden z-10"
       >
-
+        <div className="relative shrink-0">
+          <div className="absolute inset-0 bg-orange-500 rounded-xl blur-md opacity-60 animate-pulse" />
+          <div className="relative bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-2 sm:p-2.5 shadow-[0_4px_20px_rgba(234,88,12,0.6)]">
+            <Activity size={18} className="relative text-white sm:w-5 sm:h-5" />
+          </div>
+        </div>
         <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
-
-        <Plus
-          size={18}
-          className="relative"
-        />
-
-        <span className="relative">
-          Registrar atividade
-        </span>
-
+        <div className="relative flex-1 min-w-0 text-left">
+          <p className="font-semibold text-white text-base sm:text-xl truncate">
+            + REGISTRAR ATIVIDADE
+          </p>
+          <p className="text-[10px] sm:text-[11px] text-purple-100/80 truncate">
+            Converta seu treino em recursos para a cidade
+          </p>
+        </div>
       </button>
+      {/* ======================================================
+          ATIVIDADE SEMANAL
+      ====================================================== */}
+      <div className="relative bg-[#1E0A3C]/70 backdrop-blur-xl border border-purple-500/20 rounded-3xl p-3 sm:p-4 shadow-[0_10px_40px_rgba(0,0,0,0.4)] z-10 overflow-hidden">
+
+        <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full bg-purple-600/20 blur-[60px] pointer-events-none" />
+
+        {/* Header do card */}
+        <div className="flex items-start justify-between mb-3 sm:mb-4 relative z-10 gap-2">
+          <div className="min-w-0">
+            <h3 className="font-bold text-white text-sm sm:text-base leading-tight truncate">
+              Atividade Semanal
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <span className="text-xs sm:text-sm font-bold text-white">
+              {progressoSemanal}/{metaSemanal}
+            </span>
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5 shadow-[0_4px_15px_rgba(234,88,12,0.4)]">
+              <Gift size={12} className="text-white sm:w-[14px] sm:h-[14px]" />
+              <span className="text-[10px] sm:text-xs font-bold text-white">+20</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Barra de progresso */}
+        <div className="w-full h-1.5 bg-purple-900/40 rounded-full mb-3 sm:mb-4 overflow-hidden relative z-10">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-orange-500 to-purple-500"
+            style={{ width: `${(progressoSemanal / metaSemanal) * 100}%` }}
+          />
+        </div>
+
+        {/* Dias da semana - RESPONSIVO */}
+        <div className="flex justify-between items-center relative z-10 gap-0.5 sm:gap-1">
+          {semana.map((item, index) => (
+            <div key={index} className="flex flex-col items-center gap-1 flex-1 min-w-0">
+              {/* Círculo do dia */}
+              <div className="relative">
+                <div
+                  className={`w-7 h-7 xs:w-8 xs:h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-[10px] xs:text-xs sm:text-sm transition-all ${item.concluido
+                    ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-[0_4px_15px_rgba(234,88,12,0.5)]'
+                    : 'bg-purple-900/40 text-purple-300/50 border border-purple-500/20'
+                    }`}
+                >
+                  {item.dia}
+                </div>
+                {item.concluido && (
+                  <div className="absolute -top-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-green-500 flex items-center justify-center border-2 border-[#1E0A3C]">
+                    <Check size={7} className="text-white sm:w-[10px] sm:h-[10px]" strokeWidth={3} />
+                  </div>
+                )}
+              </div>
+
+              {/* Label do dia */}
+              <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-purple-200/60 font-medium truncate w-full text-center">
+                {item.label}
+              </span>
+
+              {/* XP ganho */}
+              <div className="flex items-center gap-0.5">
+                <Coins size={8} className={`sm:w-[10px] sm:h-[10px] ${item.concluido ? "text-orange-400" : "text-purple-400/30"}`} />
+                <span className={`text-[8px] xs:text-[9px] sm:text-[10px] font-bold ${item.concluido ? "text-orange-400" : "text-purple-400/30"}`}>
+                  {item.concluido ? `+${item.xp}` : '-'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+
+
+
 
       {/* ======================================================
           ATIVIDADES RECENTES
       ====================================================== */}
       <div className="flex flex-col gap-2 pb-4 z-10">
-
         <div className="flex items-center justify-between">
-
           <p className="font-semibold text-sm">
             Atividades recentes
           </p>
-
           <button
             onClick={() => onNavigate('atividades')}
             className="text-xs text-white/50"
           >
             Ver todas
           </button>
-
         </div>
 
         {recentes.length === 0 && (
@@ -669,71 +480,38 @@ export default function HomeScreen({
         )}
 
         {recentes.map((a) => {
-
-          const Icon =
-            TIPOS_ATIVIDADE[a.tipo]?.Icon
-
-          const cor =
-            TIPOS_ATIVIDADE[a.tipo]?.cor ||
-            '#F27405'
-
-          const label =
-            TIPOS_ATIVIDADE[a.tipo]?.label ||
-            a.tipo
+          const Icon = TIPOS_ATIVIDADE[a.tipo]?.Icon
+          const cor = TIPOS_ATIVIDADE[a.tipo]?.cor || '#F27405'
+          const label = TIPOS_ATIVIDADE[a.tipo]?.label || a.tipo
 
           return (
             <div
               key={a.id}
-              className="flex items-center justify-between bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-md"
+              className="flex items-center justify-between bg-white/5 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-md gap-2"
             >
-
-              <div className="flex items-center gap-3">
-
+              <div className="flex items-center gap-3 min-w-0">
                 <div
-                  className="rounded-full p-2"
-                  style={{
-                    backgroundColor: `${cor}20`
-                  }}
+                  className="rounded-full p-2 shrink-0"
+                  style={{ backgroundColor: `${cor}20` }}
                 >
-                  {Icon && (
-                    <Icon
-                      size={18}
-                      style={{ color: cor }}
-                    />
-                  )}
+                  {Icon && <Icon size={18} style={{ color: cor }} />}
                 </div>
-
-                <div>
-
-                  <p className="text-sm font-bold">
-                    {label}
-                  </p>
-
-                  <p className="text-xs text-white/50">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold truncate">{label}</p>
+                  <p className="text-xs text-white/50 truncate">
                     {formatarDetalhe(a)}
                   </p>
-
                 </div>
-
               </div>
-
-              <div className="flex items-center gap-1 bg-fitcity-energy/15 rounded-full px-2 py-1">
-
+              <div className="flex items-center gap-1 bg-fitcity-energy/15 rounded-full px-2 py-1 shrink-0">
                 <span className="text-fitcity-energy font-bold text-xs">
                   +{a.moedas}
                 </span>
-
-                <Coins
-                  size={12}
-                  className="text-fitcity-energy"
-                />
-
+                <Coins size={12} className="text-fitcity-energy" />
               </div>
-
             </div>
           )
         })}
-
       </div>
 
       {/* ======================================================
@@ -746,7 +524,6 @@ export default function HomeScreen({
           moedas={moedas}
         />
       )}
-
     </div>
   )
 }

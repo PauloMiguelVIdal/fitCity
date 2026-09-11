@@ -167,7 +167,7 @@ export default function AtividadeVinculadaSheet({ atividade, onClose }) {
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" 
+      className="fixed inset-0 z-100 flex items-end justify-center bg-black/60 backdrop-blur-sm" 
       onClick={onClose}
     >
       <div

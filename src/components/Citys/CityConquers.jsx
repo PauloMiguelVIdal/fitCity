@@ -65,8 +65,7 @@ function MiniCardEdificio({ nome, raridade, quantidade }) {
 // =============================================
 // COMPONENTE PRINCIPAL - CIDADE PATRIMÔNIO
 // =============================================
-export default function CityConquers({ atividades = [], dadosCidade, onSelecionarAtividade }) {
-  // Mock de cartas do inventário (usando as mesmas do InventoryScreen)
+export default function CityConquers({ atividades = [], dadosCidade, onSelecionarAtividade }) {  // Mock de cartas do inventário (usando as mesmas do InventoryScreen)
   const cartasInventario = useMemo(() => [
     { nome: "Usina Hidrelétrica", raridade: "lendario", qtd: 1 },
     { nome: "Shopping Center", raridade: "lendario", qtd: 1 },
@@ -138,38 +137,38 @@ const toggleFullscreen = useCallback(async () => {
 }, [])
 
 
-  return (
+   return (
     <div className="flex flex-col gap-4">
-      {/* Mapa da cidade patrimônio */}
       <div
-  ref={mapWrapperRef}
-  className={`relative overflow-hidden bg-black/30 border border-white/10 ${
-    isFullscreen
-      ? 'fixed inset-0 z-50 bg-black'
-      : 'h-[55vh] rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.4)]'
-  }`}
-  style={
-    isFullscreen && isPortrait
-      ? {
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          width: '100vh',
-          height: '100vw',
-          transform: 'translate(-50%, -50%) rotate(90deg)',
+        ref={mapWrapperRef}
+        className={`relative overflow-hidden bg-black/30 border border-white/10 ${
+          isFullscreen
+            ? 'fixed inset-0 z-50 bg-black'
+            : 'h-[55vh] rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.4)]'
+        }`}
+        style={
+          isFullscreen && isPortrait
+            ? {
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                width: '100vh',
+                height: '100vw',
+                transform: 'translate(-50%, -50%) rotate(90deg)',
+              }
+            : undefined
         }
-      : undefined
-  }
->
-  <MapWorldFitCity />
+      >
+        {/* 🔥 NOVO: passa isFullscreen */}
+        <MapWorldFitCity isFullscreen={isFullscreen} />
 
-  <button
-    onClick={toggleFullscreen}
-    className="absolute right-3 top-3 bg-white/10 backdrop-blur-xl border border-white/10 rounded-full p-2.5 shadow-lg z-10"
-  >
-    {isFullscreen ? <Minimize size={16} className="text-white" /> : <Maximize size={16} className="text-white" />}
-  </button>
-</div>
+        <button
+          onClick={toggleFullscreen}
+          className="absolute right-3 top-3 bg-white/10 backdrop-blur-xl border border-white/10 rounded-full p-2.5 shadow-lg z-10"
+        >
+          {isFullscreen ? <Minimize size={16} className="text-white" /> : <Maximize size={16} className="text-white" />}
+        </button>
+      </div>
 
       {/* Estatísticas e progresso */}
       <div className="grid grid-cols-2 gap-3">

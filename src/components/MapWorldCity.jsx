@@ -4,7 +4,7 @@
 // ============================================================
 
 import React, { useState, useMemo, useContext, useEffect, useRef, useCallback } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { ContactShadows, OrbitControls, Html } from '@react-three/drei'
 import { defineHex, Grid, spiral } from 'honeycomb-grid'
 import * as THREE from 'three'
@@ -55,6 +55,7 @@ const SETOR_CONFIG = {
   comercio:     { label: 'Comércio',    cor1: '#660000', cor3: '#E60000', cor4: '#FF4D4D' },
   imobiliario:  { label: 'Imobiliário', cor1: '#000066', cor3: '#3333CC', cor4: '#6666FF' },
   energia:      { label: 'Energia',     cor1: '#665200', cor3: '#E6B800', cor4: '#FFD966' },
+  outros:       { label: 'Outros',      cor1: '#111111', cor3: '#555555', cor4: '#888888' },
 }
 
 const SETORES = ['agricultura', 'tecnologia', 'comercio', 'industria', 'imobiliario', 'energia']
@@ -66,7 +67,6 @@ const vizinhosDeHex = (q, r) => HEX_DIRECTIONS.map(([dq, dr]) => `${q + dq},${r 
 //  MAPEAMENTO DE SETOR PARA CARTAS FITCITY
 // ─────────────────────────────────────────────────────────────
 const mapaSetor = {
-  // Agricultura
   "Plantação De Grãos": "agricultura",
   "Pomares": "agricultura",
   "Cooperativa Agrícola": "agricultura",
@@ -82,8 +82,6 @@ const mapaSetor = {
   "Terreno De Mineração": "agricultura",
   "Plantação De Eucalipto": "agricultura",
   "Pátio De Mineração": "agricultura",
-
-  // Indústria
   "Fábrica De Rações": "industria",
   "Fábrica De Bebidas": "industria",
   "Fábrica De Pães": "industria",
@@ -101,15 +99,11 @@ const mapaSetor = {
   "Estaleiro": "industria",
   "Container Modular": "industria",
   "Pátio De Veículos": "industria",
-
-  // Tecnologia
   "Startup": "tecnologia",
   "Servidor Em Nuvem": "tecnologia",
   "Empresa De Desenvolvimento De Software": "tecnologia",
   "Centro De Pesquisa Em Fusão Nuclear": "tecnologia",
   "Centro De Pesquisa Aeroespacial": "tecnologia",
-
-  // Comércio
   "Feira": "comercio",
   "Loja De Móveis": "comercio",
   "Farmácia": "comercio",
@@ -123,8 +117,6 @@ const mapaSetor = {
   "Shopping Popular": "comercio",
   "Shopping Center": "comercio",
   "Mega Mercado": "comercio",
-
-  // Imobiliário
   "Construtora De Pequenas Obras": "imobiliario",
   "Cartório E Licenças": "imobiliario",
   "Escritório De Arquitetura": "imobiliario",
@@ -135,14 +127,11 @@ const mapaSetor = {
   "Imobiliária Comercial": "imobiliario",
   "Construtora De Infraestruturas": "imobiliario",
   "Prédio De Alto Padrão": "imobiliario",
-
-  // Energia
   "Subestação De Energia": "energia",
   "Campo De Estocagem": "energia",
   "Centro De Pesquisa Energética": "energia",
   "Empresa De Comércio Energético": "energia",
   "Usina De Biomassa": "energia",
-//   "Usina Solar": "energia",
   "Parque Eólico": "energia",
   "Fábrica De Turbinas Eólicas": "energia",
   "Usina Hidrelétrica": "energia",
@@ -152,13 +141,13 @@ const mapaSetor = {
   "Usina De Fusão Nuclear": "energia",
   "Estação De Carregamento": "energia",
   "Tanque De Armazenamento De Fluidos": "energia",
-
-  // Recursos
   "Mineradora": "imobiliario",
   "Plataforma De Petróleo": "imobiliario",
   "Centro De Coleta De Biomassa": "imobiliario",
   "Hangar": "imobiliario",
   "Armazém De Materiais Sensíveis": "imobiliario",
+  "Aeroporto": "imobiliario",
+  "Porto": "imobiliario",
 }
 
 const getSetor = (nome) => mapaSetor[nome] || "outros"
@@ -167,102 +156,30 @@ const getSetor = (nome) => mapaSetor[nome] || "outros"
 //  DADOS DAS CARTAS FITCITY (APENAS NOMES ÚNICOS)
 // ─────────────────────────────────────────────────────────────
 const CARTAS_FITCITY_UNICAS = [
-  // Agricultura
-  "Terreno De Mineração",
-  "Pátio De Mineração",
-  "Pomares",
-  "Depósito De Resíduos Orgânicos",
-  "Plantação De Grãos",
-  "Serraria",
-  "Plantação De Eucalipto",
-  "Cooperativa Agrícola",
-  "Centro De Comércio De Plantações",
-  "Área Florestal",
-  
-  // Energia
-  "Subestação De Energia",
-  "Campo De Estocagem",
-  "Silo",
-  "Centro De Pesquisa Energética",
-  "Empresa De Comércio Energético",
-  "Usina De Biomassa",
-//   "Usina Solar",
-  "Parque Eólico",
-  "Fábrica De Turbinas Eólicas",
-  "Usina Hidrelétrica",
-  "Usina Termelétrica A Biocombustíveis",
-  "Usina Termelétrica",
-  "Reator Nuclear Convencional",
-  "Usina De Fusão Nuclear",
-  "Estação De Carregamento",
+  "Terreno De Mineração","Pátio De Mineração","Pomares","Depósito De Resíduos Orgânicos",
+  "Plantação De Grãos","Serraria","Plantação De Eucalipto","Cooperativa Agrícola",
+  "Centro De Comércio De Plantações","Área Florestal",
+  "Subestação De Energia","Campo De Estocagem","Silo","Centro De Pesquisa Energética",
+  "Empresa De Comércio Energético","Usina De Biomassa","Parque Eólico","Fábrica De Turbinas Eólicas",
+  "Usina Hidrelétrica","Usina Termelétrica A Biocombustíveis","Usina Termelétrica",
+  "Reator Nuclear Convencional","Usina De Fusão Nuclear","Estação De Carregamento",
   "Tanque De Armazenamento De Fluidos",
-  
-  // Indústria
-  "Fazenda De Vacas",
-  "Granja De Aves",
-  "Fábrica De Rações",
-  "Fábrica De Papel",
-  "Fábrica De Pães",
-  "Container Modular",
-  "Pátio De Veículos",
-  "Fábrica De Calçados",
-  "Fábrica De Bebidas",
-  "Laboratório Farmacêutico",
-  "Fábrica De Motores",
-  "Fábrica De Robôs",
-  "Usina Siderúrgica",
-  "Fábrica De Ligas Metálicas",
-  "Fábrica De Peças Automotivas",
-  "Fábrica De Smartphones",
+  "Fazenda De Vacas","Granja De Aves","Fábrica De Rações","Fábrica De Papel","Fábrica De Pães",
+  "Container Modular","Pátio De Veículos","Fábrica De Calçados","Fábrica De Bebidas",
+  "Laboratório Farmacêutico","Fábrica De Motores","Fábrica De Robôs","Usina Siderúrgica",
+  "Fábrica De Ligas Metálicas","Fábrica De Peças Automotivas","Fábrica De Smartphones",
   "Empresa De Automação Industrial",
-  
-  // Tecnologia
-  "Startup",
-  "Servidor Em Nuvem",
-  "Empresa De Desenvolvimento De Software",
-  "Centro De Pesquisa Em Fusão Nuclear",
-  "Centro De Pesquisa Aeroespacial",
-  
-  // Comércio
-  "Feira",
-  "Loja De Móveis",
-  "Farmácia",
-  "Câmara Fria",
-  "Mercado",
-  "Loja De Calçados",
-  "Posto De Combustíveis",
-  "Centro De Distribuição",
-  "Concessionária De Veículos",
-  "Transporte Petrolífero",
-  "Shopping Popular",
-  "Shopping Center",
-  "Mega Mercado",
-  
-  // Imobiliário
-  "Construtora De Pequenas Obras",
-  "Cartório E Licenças",
-  "Escritório De Arquitetura",
-  "Consultoria Em Engenharia Civil",
-  "Escritório De Design De Interiores",
-  "Construtora",
-  "Imobiliária Residencial",
-  "Imobiliária Comercial",
-  "Construtora De Infraestruturas",
-  
-  // Recursos e Logística
-  "Hangar",
-  "Mineradora",
-  "Plataforma De Petróleo",
-  "Centro De Coleta De Biomassa",
-//   "Armazém De Materiais Sensíveis",
-  "Criação De Ovinos",
-  "Prédio De Alto Padrão",
-  "Armazém",
-  "Aeroporto",
-  "Porto",
-  "Estaleiro",
-  "Fábrica De Aeronaves",
-  "Fábrica De Foguetes",
+  "Startup","Servidor Em Nuvem","Empresa De Desenvolvimento De Software",
+  "Centro De Pesquisa Em Fusão Nuclear","Centro De Pesquisa Aeroespacial",
+  "Feira","Loja De Móveis","Farmácia","Câmara Fria","Mercado","Loja De Calçados",
+  "Posto De Combustíveis","Centro De Distribuição","Concessionária De Veículos",
+  "Transporte Petrolífero","Shopping Popular","Shopping Center","Mega Mercado",
+  "Construtora De Pequenas Obras","Cartório E Licenças","Escritório De Arquitetura",
+  "Consultoria Em Engenharia Civil","Escritório De Design De Interiores","Construtora",
+  "Imobiliária Residencial","Imobiliária Comercial","Construtora De Infraestruturas",
+  "Hangar","Mineradora","Plataforma De Petróleo","Centro De Coleta De Biomassa",
+  "Criação De Ovinos","Prédio De Alto Padrão","Armazém","Aeroporto","Porto","Estaleiro",
+  "Fábrica De Aeronaves","Fábrica De Foguetes",
 ]
 
 // ─────────────────────────────────────────────────────────────
@@ -303,11 +220,9 @@ const SkyDome = React.memo(({ dayProgress }) => {
             float h = vUv.y;
             vec3 gradient = mix(bottomColor, middleColor, smoothstep(0.0, 0.5, h));
             gradient = mix(gradient, topColor, smoothstep(0.3, 1.0, h));
-            
             float sunset = uProgress * 0.6;
             vec3 sunsetColor = vec3(1.0, 0.4, 0.1);
             gradient = mix(gradient, sunsetColor, sunset * (1.0 - h));
-            
             float alpha = smoothstep(0.0, 0.1, h) * 0.95;
             gl_FragColor = vec4(gradient, alpha);
           }
@@ -353,13 +268,10 @@ const Ocean = React.memo(() => {
             float wave1 = sin(st.x + uTime * 0.5) * cos(st.y + uTime * 0.3) * 0.5 + 0.5;
             float wave2 = sin(st.y - uTime * 0.4) * cos(st.x - uTime * 0.2) * 0.5 + 0.5;
             float waveStrength = mix(wave1, wave2, 0.5);
-            
             vec3 finalColor = mix(uColorDeep, uColorBase, waveStrength);
             float alpha = mix(0.15, 0.5, waveStrength);
-            
             float dist = distance(vUv, vec2(0.5, 0.5)) * 2.0;
             alpha = mix(alpha, 1.0, smoothstep(0.95, 1.0, dist));
-            
             gl_FragColor = vec4(finalColor, alpha);
           }
         `}
@@ -371,7 +283,7 @@ const Ocean = React.memo(() => {
 // ─────────────────────────────────────────────────────────────
 //  CAMADA 3: TERRA E EDIFÍCIOS
 // ─────────────────────────────────────────────────────────────
-const HexBase = React.memo(({ corTopo = '#5a9e44', config = {} }) => {
+const HexBase = React.memo(({ corTopo = '#5a9e44', config = {}, selected = false, hovered = false, moveMode = false }) => {
   const shape = useMemo(() => {
     const s = new THREE.Shape()
     for (let i = 0; i < 6; i++) {
@@ -404,6 +316,22 @@ const HexBase = React.memo(({ corTopo = '#5a9e44', config = {} }) => {
         <shapeGeometry args={[shape]} />
         <meshStandardMaterial color={corTopo} roughness={0.8} metalness={0} />
       </mesh>
+
+      {/* Highlight de seleção */}
+      {selected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.21, 0]}>
+          <ringGeometry args={[HEX_SIZE * 0.87, HEX_SIZE * 0.99, 6]} />
+          <meshBasicMaterial color="#F27405" transparent opacity={0.95} />
+        </mesh>
+      )}
+
+      {/* Highlight de hover no moveMode */}
+      {moveMode && hovered && !selected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.21, 0]}>
+          <ringGeometry args={[HEX_SIZE * 0.87, HEX_SIZE * 0.99, 6]} />
+          <meshBasicMaterial color="#d4f08a" transparent opacity={0.6} />
+        </mesh>
+      )}
     </group>
   )
 })
@@ -432,19 +360,48 @@ const HexTileClusterSatelite = React.memo(({ hex, corTopo, modeloId, corFallback
 // ─────────────────────────────────────────────────────────────
 //  HexTile
 // ─────────────────────────────────────────────────────────────
-const HexTile = React.memo(({ hex, building, onClick, selected, moveMode, config = {} }) => {
+const HexTile = React.memo(({ 
+  hex, 
+  building, 
+  onClick, 
+  selected, 
+  moveMode, 
+  config = {},
+  onHover,
+  isHovered,
+  isBlocked,
+}) => {
   const { x, z } = hexToWorld(hex, HEX_SIZE)
   
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback((e) => {
+    e.stopPropagation()
     onClick(hex)
   }, [onClick, hex])
+
+  const handleOver = useCallback((e) => {
+    e.stopPropagation()
+    if (onHover) onHover(`${hex.q},${hex.r}`, true)
+  }, [onHover, hex])
+
+  const handleOut = useCallback((e) => {
+    e.stopPropagation()
+    if (onHover) onHover(`${hex.q},${hex.r}`, false)
+  }, [onHover, hex])
   
   return (
     <group 
       position={[x, 0, z]}
       onClick={handleClick}
+      onPointerOver={handleOver}
+      onPointerOut={handleOut}
     >
-      <HexBase corTopo={building ? SETOR_CONFIG[building.setor]?.cor3 : undefined} config={config} />
+      <HexBase 
+        corTopo={building ? SETOR_CONFIG[building.setor]?.cor3 : undefined} 
+        config={config}
+        selected={selected}
+        hovered={isHovered}
+        moveMode={moveMode}
+      />
       
       {building && (
         <BuildingModel
@@ -453,6 +410,22 @@ const HexTile = React.memo(({ hex, building, onClick, selected, moveMode, config
           posicaoBase={[0, 0.22, 0]}
           graphicsConfig={config}
         />
+      )}
+
+      {/* Indicador de bloqueio durante moveMode */}
+      {moveMode && isHovered && isBlocked && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.22, 0]}>
+          <ringGeometry args={[HEX_SIZE * 0.5, HEX_SIZE * 0.65, 6]} />
+          <meshBasicMaterial color="#ff2222" transparent opacity={0.7} />
+        </mesh>
+      )}
+
+      {/* Indicador de destino válido durante moveMode */}
+      {moveMode && isHovered && !isBlocked && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.22, 0]}>
+          <ringGeometry args={[HEX_SIZE * 0.45, HEX_SIZE * 0.58, 6]} />
+          <meshBasicMaterial color="#F27405" transparent opacity={0.85} />
+        </mesh>
       )}
     </group>
   )
@@ -518,12 +491,22 @@ const Lights = React.memo(({ config = {} }) => {
 // ─────────────────────────────────────────────────────────────
 //  COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────────────────────
-export default function MapWorldFitCity() {
+export default function MapWorldFitCity({ isFullscreen = false }) {
   const { config: graphicsConfig } = useGraphicsConfig()
   
   const [selectedKey, setSelectedKey] = useState(null)
   const [dayProgress, setDayProgress] = useState(0)
   const [moveMode, setMoveMode] = useState(false)
+  const [hoveredKey, setHoveredKey] = useState(null)
+
+  // 🔥 NOVO: Se o usuário sair do fullscreen, limpa seleção e moveMode
+  useEffect(() => {
+    if (!isFullscreen) {
+      setMoveMode(false)
+      setSelectedKey(null)
+      setHoveredKey(null)
+    }
+  }, [isFullscreen])
 
   // ── Edifícios ativos (APENAS UMA UNIDADE DE CADA) ──────────
   const edificiosAtivos = useMemo(() => {
@@ -533,7 +516,7 @@ export default function MapWorldFitCity() {
         id: `edificio-${index}`,
         nome: nome,
         setor: setor || 'outros',
-        quantidade: 1, // Sempre 1, independente da quantidade real
+        quantidade: 1,
         ehCluster: edificioEhCluster(nome),
         ehComposto: edificioEhComposto(nome),
       }
@@ -672,17 +655,102 @@ export default function MapWorldFitCity() {
       .filter(({ key }) => key !== '0,0' && !satelites[key])
   }, [hexGrid, satelites])
 
+  // ── Edifício selecionado ───────────────────────────────────
+  const selectedBuilding = useMemo(() => {
+    if (!selectedKey) return null
+    const id = posicoes[selectedKey]
+    return id ? edificioPorId.get(id) || null : null
+  }, [selectedKey, posicoes, edificioPorId])
+
+  // Verifica se um destino é válido para mover
+  const destinoEhValido = useCallback((destKey) => {
+    if (!selectedKey) return false
+    if (destKey === '0,0') return false
+    if (destKey === selectedKey) return false
+    if (posicoes[destKey]) return false
+    if (satelites[destKey]) return false
+
+    const edSendo = edificioPorId.get(posicoes[selectedKey])
+    if (!edSendo) return false
+
+    if (edSendo.ehCluster) {
+      const gridKeys = new Set(hexGrid.map(h => `${h.q},${h.r}`))
+      const ocupadasSemEle = new Set(['0,0'])
+
+      Object.entries(posicoes).forEach(([k, id]) => {
+        if (k === selectedKey) return
+        ocupadasSemEle.add(k)
+        const ed = edificioPorId.get(id)
+        if (ed?.ehCluster) {
+          const [q, r] = k.split(',').map(Number)
+          vizinhosDeHex(q, r).forEach(vk => ocupadasSemEle.add(vk))
+        }
+      })
+
+      Object.keys(satelites).forEach(k => {
+        if (k !== selectedKey) ocupadasSemEle.add(k)
+      })
+
+      const [dq, dr] = destKey.split(',').map(Number)
+      const destinoValido = vizinhosDeHex(dq, dr).every(
+        vk => !ocupadasSemEle.has(vk) && gridKeys.has(vk)
+      )
+      return destinoValido
+    }
+
+    return true
+  }, [selectedKey, posicoes, satelites, edificioPorId, hexGrid])
+
+  // Executa o movimento
+  const moverEdificio = useCallback((destKey) => {
+    if (!destinoEhValido(destKey)) return false
+
+    setPosicoes(prev => {
+      const copy = { ...prev }
+      copy[destKey] = copy[selectedKey]
+      delete copy[selectedKey]
+      return copy
+    })
+
+    setSelectedKey(destKey)
+    setMoveMode(false)
+    setHoveredKey(null)
+    return true
+  }, [selectedKey, destinoEhValido])
+
   // ── Handle Click ────────────────────────────────────────────
   const handleHexClick = useCallback((hex) => {
     const key = `${hex.q},${hex.r}`
+
     if (moveMode) {
-      setMoveMode(false)
+      moverEdificio(key)
       return
     }
+
     if (posicoes[key]) {
       setSelectedKey(prev => prev === key ? null : key)
+    } else {
+      setSelectedKey(null)
     }
-  }, [moveMode, posicoes])
+  }, [moveMode, posicoes, moverEdificio])
+
+  // Handle hover
+  const handleHover = useCallback((key, isOver) => {
+    setHoveredKey(isOver ? key : null)
+  }, [])
+
+  // Ativar modo mover (só em fullscreen)
+  const ativarMoveMode = useCallback(() => {
+    if (!isFullscreen) return
+    if (!selectedKey) return
+    setMoveMode(true)
+  }, [isFullscreen, selectedKey])
+
+  // Cancelar moveMode
+  const cancelarMoveMode = useCallback(() => {
+    setMoveMode(false)
+    setHoveredKey(null)
+  }, [])
 
   // ── Configuração do Canvas ─────────────────────────────────
   const canvasConfig = useMemo(() => ({
@@ -693,14 +761,154 @@ export default function MapWorldFitCity() {
   // ── Render ──────────────────────────────────────────────────
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden', backgroundColor:'#350973' }}>
+      
+    
+{/* Nome do edifício selecionado — canto inferior direito */}
+{selectedBuilding && (
+  <div
+    style={{
+      position: 'fixed',
+      right: 20,          // 🔥 mudou
+      bottom: 20,         // 🔥 mudou (era top: 100)
+      zIndex: 60,
+      pointerEvents: 'none',
+      fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+      display: 'flex',
+      flexDirection: 'column',   // 🔥 garante que botão fica embaixo
+      alignItems: 'stretch',     // 🔥 botão acompanha a largura do card
+      gap: 8,
+    }}
+  >
+    {/* Card de info */}
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(12,8,28,0.95), rgba(26,14,58,0.95))',
+      border: `1.5px solid ${SETOR_CONFIG[selectedBuilding.setor]?.cor4 || '#888'}88`,
+      boxShadow: `0 4px 24px rgba(0,0,0,0.6), 0 0 16px ${SETOR_CONFIG[selectedBuilding.setor]?.cor3 || '#555'}44`,
+      borderRadius: 12,
+      padding: '10px 16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      backdropFilter: 'blur(10px)',
+    }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: 8,
+        background: `linear-gradient(135deg, ${SETOR_CONFIG[selectedBuilding.setor]?.cor3 || '#555'} 0%, ${SETOR_CONFIG[selectedBuilding.setor]?.cor1 || '#111'} 100%)`,
+        border: `1px solid ${SETOR_CONFIG[selectedBuilding.setor]?.cor4 || '#888'}66`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden', flexShrink: 0,
+      }}>
+        <img
+          src={`/imagens/${selectedBuilding.nome}.png`}
+          alt={selectedBuilding.nome}
+          style={{ width: '70%', height: '70%', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+          onError={(e) => { e.target.style.display = 'none' }}
+        />
+      </div>
+      <div>
+        <div style={{
+          color: '#fff', fontWeight: 800, fontSize: 14,
+          letterSpacing: '0.04em',
+          textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+          maxWidth: 200, whiteSpace: 'nowrap',
+          overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {selectedBuilding.nome}
+        </div>
+        <div style={{
+          color: SETOR_CONFIG[selectedBuilding.setor]?.cor4 || '#888',
+          fontSize: 11, fontWeight: 600, marginTop: 2, opacity: 0.85,
+        }}>
+          {SETOR_CONFIG[selectedBuilding.setor]?.label || 'Outros'}
+        </div>
+      </div>
+    </div>
+
+    {/* Botão Mover — só aparece em fullscreen */}
+    {isFullscreen && !moveMode && (
+      <button
+        onClick={ativarMoveMode}
+        style={{
+          pointerEvents: 'auto',
+          background: 'linear-gradient(135deg,#4C14A9,#6411D9)',
+          border: '1px solid rgba(199,159,255,0.5)',
+          borderRadius: 10,
+          padding: '8px 14px',
+          cursor: 'pointer',
+          color: '#fff',
+          fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+          fontSize: 12, fontWeight: 700, letterSpacing: '.08em',
+          boxShadow: '0 0 14px rgba(100,17,217,0.5)',
+          textTransform: 'uppercase',
+        }}
+      >
+        ✦ Mover edifício
+      </button>
+    )}
+
+    {/* Aviso se não estiver em fullscreen */}
+    {!isFullscreen && (
+      <div style={{
+        background: 'rgba(242,116,5,0.15)',
+        border: '1px solid rgba(242,116,5,0.4)',
+        borderRadius: 10,
+        padding: '6px 12px',
+        color: '#FFB060',
+        fontSize: 10, fontWeight: 700,
+        letterSpacing: '.06em',
+        textAlign: 'center',
+      }}>
+        ⛶ Entre em fullscreen para mover
+      </div>
+    )}
+  </div>
+)}
+      {/* Banner de modo mover */}
+      {moveMode && (
+        <div style={{
+          position: 'fixed',
+          top: 20,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 60,
+          background: 'linear-gradient(135deg,rgba(242,116,5,0.94),rgba(175,78,0,0.94))',
+          border: '1px solid #F27405',
+          boxShadow: '0 0 16px rgba(242,116,5,0.5)',
+          borderRadius: 10,
+          padding: '8px 16px',
+          display: 'flex', alignItems: 'center', gap: 12,
+          fontFamily: "'Rajdhani',sans-serif",
+          color: '#fff', fontSize: 12, fontWeight: 700,
+          letterSpacing: '.07em',
+        }}>
+          <span>✦ Selecione o destino</span>
+          <button
+            onClick={cancelarMoveMode}
+            style={{
+              background: 'rgba(0,0,0,0.3)',
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: 6, padding: '3px 10px',
+              cursor: 'pointer', color: '#fff',
+              fontFamily: "'Rajdhani',sans-serif",
+              fontSize: 11, fontWeight: 700,
+            }}
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       <Canvas 
-        frameloop="demand"
+        frameloop={moveMode || hoveredKey ? "always" : "demand"}
         shadows={canvasConfig.shadows}
         gl={{
           antialias: canvasConfig.antialias,
           powerPreference: "high-performance",
         }}
         camera={{ position: [18, 18, 18], fov: 26 }}
+        onPointerMissed={() => {
+          if (!moveMode) setSelectedKey(null)
+        }}
       >
         {/* CAMADA 1: CÉU */}
         <SkyDome dayProgress={dayProgress} />
@@ -759,6 +967,9 @@ export default function MapWorldFitCity() {
                 selected={key === selectedKey}
                 moveMode={moveMode}
                 config={graphicsConfig}
+                onHover={handleHover}
+                isHovered={hoveredKey === key}
+                isBlocked={moveMode && hoveredKey === key && !destinoEhValido(key)}
               />
             )
           })}
@@ -774,15 +985,15 @@ export default function MapWorldFitCity() {
         
         <OrbitControls
           enablePan={false}
-          enableZoom={true}
-          enableRotate={true}
+          enableZoom={!moveMode}
+          enableRotate={!moveMode}
           rotateSpeed={0.5}
           minPolarAngle={Math.PI / 4}
           maxPolarAngle={Math.PI / 2.8}
           target={[0, 0, 0]}
           enableDamping={true}
           dampingFactor={0.08}
-          autoRotate={graphicsConfig.autoRotate}
+          autoRotate={graphicsConfig.autoRotate && !moveMode}
           autoRotateSpeed={graphicsConfig.autoRotateSpeed}
         />
       </Canvas>
