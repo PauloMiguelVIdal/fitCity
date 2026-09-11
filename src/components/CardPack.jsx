@@ -1,6 +1,5 @@
 // src/components/CardPack.jsx
-import React, { useMemo, useRef, useCallback, useState } from "react";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import React, { useMemo } from "react";
 
 // ============================================================
 // CONSTANTES
@@ -53,43 +52,6 @@ const RARIDADE_CONFIG = {
 };
 
 const RANK_PARA_RARIDADE = { S: "lendario", A: "epico", B: "raro", C: "comum" };
-
-// ============================================================
-// HOOK: TILT 3D SUAVE (apenas mouse)
-// ============================================================
-function useTilt3D({ maxTilt = 14, scale = 1.04, stiffness = 180, damping = 18 } = {}) {
-  const ref = useRef(null);
-  const x = useMotionValue(0.5);
-  const y = useMotionValue(0.5);
-  const springX = useSpring(x, { stiffness, damping });
-  const springY = useSpring(y, { stiffness, damping });
-  const rotateX = useTransform(springY, [0, 1], [maxTilt, -maxTilt]);
-  const rotateY = useTransform(springX, [0, 1], [-maxTilt, maxTilt]);
-  const glareX = useTransform(springX, [0, 1], ["0%", "100%"]);
-  const glareY = useTransform(springY, [0, 1], ["0%", "100%"]);
-  const [isHover, setIsHover] = useState(false);
-
-  const handleMouseMove = useCallback((e) => {
-    const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    x.set((e.clientX - rect.left) / rect.width);
-    y.set((e.clientY - rect.top) / rect.height);
-  }, [x, y]);
-
-  const handleMouseEnter = useCallback(() => setIsHover(true), []);
-  const handleMouseLeave = useCallback(() => {
-    setIsHover(false);
-    x.set(0.5);
-    y.set(0.5);
-  }, [x, y]);
-
-  return {
-    ref,
-    rotateX, rotateY, glareX, glareY, isHover, scale,
-    handlers: { onMouseMove: handleMouseMove, onMouseEnter: handleMouseEnter, onMouseLeave: handleMouseLeave },
-  };
-}
 
 // ============================================================
 // COMPONENTE PRINCIPAL — CardPack
@@ -250,37 +212,28 @@ const CardPack = ({
     return null;
   }, [isProducao, isVenda, isEstoque, isPassiva, setorInfo]);
 
-  // ── TILT 3D ──────────────────────────────────────────────
-  const tilt = useTilt3D({ maxTilt: 14, scale: 1.04, stiffness: 180, damping: 18 });
-
-  // ── RENDER ───────────────────────────────────────────────
+  // ── RENDER (SEM 3D) ──────────────────────────────────────
   return (
     <div
-      ref={tilt.ref}
-      {...tilt.handlers}
       className="relative w-full aspect-[3/4] overflow-hidden"
       style={{
-        perspective: "1200px",
-        perspectiveOrigin: "50% 50%",
         userSelect: "none",
         WebkitUserSelect: "none",
         WebkitTouchCallout: "none",
         WebkitTapHighlightColor: "transparent",
+        // Sem perspective, sem transforms, sem preserve-3d
+        willChange: "auto",
+        transform: "none",
       }}
     >
-      <motion.div
+      <div
         style={{
           width: "100%",
           height: "100%",
           position: "relative",
-          transformStyle: "preserve-3d",
-          WebkitBackfaceVisibility: "hidden",
           overflow: "hidden",
           ...bordaCategoria,
           ...bordaRaridade,
-          rotateX: tilt.rotateX,
-          rotateY: tilt.rotateY,
-          scale: tilt.isHover ? tilt.scale : 1,
         }}
       >
         {/* Fundo temático */}
@@ -292,18 +245,16 @@ const CardPack = ({
             position: "absolute", inset: 0,
             display: "flex", alignItems: "center", justifyContent: "center",
             background: getGradient, borderRadius: "inherit",
-            transformStyle: "preserve-3d", overflow: "hidden",
+            overflow: "hidden",
             zIndex: 3,
           }}
         >
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}>
-            {/* Glare */}
-            <motion.div
+            {/* Glare estático (sem movimento 3D) */}
+            <div
               style={{
                 position: "absolute", inset: 0,
-                background: `radial-gradient(circle at ${tilt.glareX} ${tilt.glareY}, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0) 60%)`,
-                opacity: tilt.isHover ? 1 : 0,
-                transition: "opacity 0.4s ease",
+                background: `radial-gradient(circle at 50% 50%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 60%)`,
                 pointerEvents: "none", zIndex: 30, borderRadius: "inherit",
               }}
             />
@@ -318,7 +269,6 @@ const CardPack = ({
               background: `${setorInfo.cor1}cc`,
               color: rConfig.cor,
               border: `1px solid ${rConfig.cor}66`,
-              transform: "translateZ(25px)",
             }}>
               {rConfig.label}
             </div>
@@ -331,7 +281,7 @@ const CardPack = ({
                 ...(pos.includes("l") ? { left: 5 } : { right: 5 }),
                 color: setorInfo.cor4, fontSize: 8, opacity: 0.8,
                 textShadow: `0 0 6px ${setorInfo.cor4}`,
-                zIndex: 5, pointerEvents: "none", transform: "translateZ(20px)",
+                zIndex: 5, pointerEvents: "none",
               }}>✦</div>
             ))}
 
@@ -340,13 +290,13 @@ const CardPack = ({
               width: "88%", height: "92%",
               display: "flex", flexDirection: "column",
               alignItems: "center", justifyContent: "space-between",
-              position: "relative", zIndex: 10, transformStyle: "preserve-3d",
+              position: "relative", zIndex: 10,
               padding: "6px 0",
             }}>
               <div style={{
                 flex: 1, display: "flex", flexDirection: "column",
                 alignItems: "center", justifyContent: "center",
-                gap: 6, width: "100%", transformStyle: "preserve-3d",
+                gap: 6, width: "100%",
               }}>
                 {/* Box da Imagem */}
                 <div style={{
@@ -358,7 +308,6 @@ const CardPack = ({
                   boxShadow: `0 4px 20px ${setorInfo.cor4}33, inset 0 0 20px ${setorInfo.cor1}88`,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   position: "relative", overflow: "hidden", flexShrink: 0,
-                  transform: "translateZ(40px)",
                 }}>
                   <img
                     src={getImageUrl(nomeAtual)}
@@ -430,7 +379,7 @@ const CardPack = ({
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 };
