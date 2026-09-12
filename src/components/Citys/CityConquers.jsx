@@ -164,7 +164,7 @@ const toggleFullscreen = useCallback(async () => {
 
         <button
           onClick={toggleFullscreen}
-          className="absolute right-3 top-3 bg-white/10 backdrop-blur-xl border border-white/10 rounded-full p-2.5 shadow-lg z-10"
+          className="absolute left-3 top-3 bg-white/10 backdrop-blur-xl border border-white/10 rounded-full p-2.5 shadow-lg z-10"
         >
           {isFullscreen ? <Minimize size={16} className="text-white" /> : <Maximize size={16} className="text-white" />}
         </button>

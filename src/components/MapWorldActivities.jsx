@@ -1,35 +1,65 @@
 // src/components/MapWorldActivities.jsx
-import React, { useState, useMemo, useContext, useEffect, useRef, useCallback } from 'react'
-import { Canvas } from '@react-three/fiber'
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
 import { ContactShadows, OrbitControls, Html } from '@react-three/drei'
 import { defineHex, Grid, spiral } from 'honeycomb-grid'
 import * as THREE from 'three'
 import { BuildingModel } from './BuildingModel'
-import { resolverModeloSede, MODELOS, EDIFICIO_PARA_MODELO, PORTES_ORDENADOS } from './BuildingModels'
+import { resolverModeloSede, MODELOS, EDIFICIO_PARA_MODELO } from './BuildingModels'
 import { useFrame } from '@react-three/fiber'
 import { useGraphicsConfig } from './GraphicsConfigContext'
 import { calcularMoedas } from '../utils/atividades'
-import { avaliarAtividade } from '../utils/atividadeModel'
-import { Coins, TrendingUp } from 'lucide-react'
+import { Coins, TrendingUp, Building2, Move, ZoomIn, ZoomOut, Maximize, Minimize } from 'lucide-react'
 
 const HEX_SIZE = 0.6
 
 // =============================================
-// CONSTANTE: chave do localStorage
+// CONSTANTES
 // =============================================
 const STORAGE_PREFIX = 'fitcity_moedas_'
-const STORAGE_PORTE = 'fitcity_porte_sede'
+
+// =============================================
+// TABELA DE NÍVEIS (atividades/mês → porte + raio)
+// =============================================
+const TABELA_NIVEIS = [
+  { nivel: 1,  porte: 'Micro Empresa',           raio: 3, atvMin: 1  },
+  { nivel: 2,  porte: 'Sociedade Limitada',      raio: 3, atvMin: 3  },
+  { nivel: 3,  porte: 'Empresa Regional',        raio: 3, atvMin: 7  },
+  { nivel: 4,  porte: 'Companhia Local',         raio: 4, atvMin: 12 },
+  { nivel: 5,  porte: 'Empresa Estadual',        raio: 5, atvMin: 16 },
+  { nivel: 6,  porte: 'Companhia Nacional',      raio: 6, atvMin: 21 },
+  { nivel: 7,  porte: 'Corporação Multissetorial', raio: 6, atvMin: 27 },
+  { nivel: 8,  porte: 'Grupo Empresarial',       raio: 7, atvMin: 34 },
+  { nivel: 9,  porte: 'Conglomerado Global',     raio: 7, atvMin: 42 },
+  { nivel: 10, porte: 'Mega Holding',            raio: 8, atvMin: 50 },
+]
+
+function calcularNivel(atividadesMes) {
+  let resultado = TABELA_NIVEIS[0]
+  for (const item of TABELA_NIVEIS) {
+    if (atividadesMes >= item.atvMin) resultado = item
+    else break
+  }
+  return resultado
+}
+
+function proximoNivel(atividadesMes) {
+  const atual = calcularNivel(atividadesMes)
+  const idx = TABELA_NIVEIS.findIndex(n => n.nivel === atual.nivel)
+  if (idx < 0 || idx >= TABELA_NIVEIS.length - 1) return null
+  return TABELA_NIVEIS[idx + 1]
+}
 
 // =============================================
 // MAPEAMENTO DE EDIFÍCIOS POR NÍVEL DE MOEDAS
 // =============================================
 const EDIFICIOS_POR_NIVEL = {
-  1: { edificios: [{ nome: 'Plantação De Vegetais', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 1' },
-  2: { edificios: [{ nome: 'Granja De Aves', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 2' },
-  3: { edificios: [{ nome: 'Fazenda De Vacas', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 3' },
-  4: { edificios: [{ nome: 'Criação De Ovinos', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 4' },
-  5: { edificios: [{ nome: 'Cooperativa Agrícola', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 5' },
-  6: { edificios: [{ nome: 'Centro De Comércio De Plantações', setor: 'agricultura' }], cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50', label: 'Nível 6' },
+  1: { edificios: [{ nome: 'Plantação De Vegetais', setor: 'agricultura' }] },
+  2: { edificios: [{ nome: 'Granja De Aves', setor: 'agricultura' }] },
+  3: { edificios: [{ nome: 'Fazenda De Vacas', setor: 'agricultura' }] },
+  4: { edificios: [{ nome: 'Criação De Ovinos', setor: 'agricultura' }] },
+  5: { edificios: [{ nome: 'Cooperativa Agrícola', setor: 'agricultura' }] },
+  6: { edificios: [{ nome: 'Centro De Comércio De Plantações', setor: 'agricultura' }] },
 }
 
 // =============================================
@@ -93,15 +123,13 @@ const hexToWorld = (hex, size) => ({
 })
 
 // =============================================
-// 🔥 HELPER: lê / grava moeda no localStorage
+// HELPERS: moedas
 // =============================================
 function jaColetou(edificioId) {
   if (typeof window === 'undefined') return false
   try {
     return window.localStorage.getItem(`${STORAGE_PREFIX}${edificioId}`) === '1'
-  } catch {
-    return false
-  }
+  } catch { return false }
 }
 
 function marcarColetado(edificioId) {
@@ -112,26 +140,7 @@ function marcarColetado(edificioId) {
 }
 
 // =============================================
-// 🔥 HELPER: lê / grava porte da sede
-// =============================================
-function lerPorteSalvo() {
-  if (typeof window === 'undefined') return PORTES_ORDENADOS[0]
-  try {
-    const salvo = window.localStorage.getItem(STORAGE_PORTE)
-    if (salvo && PORTES_ORDENADOS.includes(salvo)) return salvo
-  } catch {}
-  return PORTES_ORDENADOS[0]
-}
-
-function salvarPorte(porte) {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(STORAGE_PORTE, porte)
-  } catch {}
-}
-
-// =============================================
-// 🔥 BADGE DE MOEDAS (só o ícone; some ao clicar)
+// BADGE DE MOEDAS
 // =============================================
 const CoinsBadge = React.memo(({ edificioId, yOffset = 1.05, onColetar }) => {
   const [coletado, setColetado] = useState(() => jaColetou(edificioId))
@@ -187,7 +196,7 @@ const CoinsBadge = React.memo(({ edificioId, yOffset = 1.05, onColetar }) => {
 // =============================================
 // CAMADA 1: CÉU
 // =============================================
-const SkyDome = React.memo(({ dayProgress }) => {
+const SkyDome = React.memo(({ dayProgress, raioMapa }) => {
   const uniforms = useMemo(() => ({
     topColor:    { value: new THREE.Color('#4c2da0') },
     middleColor: { value: new THREE.Color('#F27405') },
@@ -197,8 +206,12 @@ const SkyDome = React.memo(({ dayProgress }) => {
 
   useEffect(() => { uniforms.uProgress.value = dayProgress }, [dayProgress, uniforms])
 
+  const tamanhoBase = HEX_SIZE * 1.73 * (raioMapa + 2.5)
+  const escalaXZ = tamanhoBase
+  const escalaY  = tamanhoBase * 0.75
+
   return (
-    <mesh scale={[8, 6, 8]} position={[0, 0.01, 0]}>
+    <mesh scale={[escalaXZ, escalaY, escalaXZ]} position={[0, 0.01, 0]}>
       <sphereGeometry args={[1, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2]} />
       <shaderMaterial
         side={THREE.BackSide}
@@ -237,7 +250,7 @@ const SkyDome = React.memo(({ dayProgress }) => {
 // =============================================
 // CAMADA 2: MAR
 // =============================================
-const Ocean = React.memo(() => {
+const Ocean = React.memo(({ raioMapa }) => {
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uColorBase:   { value: new THREE.Color('#0066cc') },
@@ -246,9 +259,11 @@ const Ocean = React.memo(() => {
 
   useFrame((state) => { uniforms.uTime.value = state.clock.elapsedTime })
 
+  const tamanhoMar = HEX_SIZE * 1.73 * (raioMapa + 2.5)
+
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
-      <circleGeometry args={[8, 64]} />
+      <circleGeometry args={[tamanhoMar, 64]} />
       <shaderMaterial
         transparent
         uniforms={uniforms}
@@ -285,7 +300,13 @@ const Ocean = React.memo(() => {
 // =============================================
 // CAMADA 3: HEX BASE
 // =============================================
-const HexBase = React.memo(({ corTopo = '#5a9e44', config = {} }) => {
+const HexBase = React.memo(({ 
+  corTopo = '#5a9e44', 
+  config = {},
+  selected = false,
+  hovered = false,
+  moveMode = false,
+}) => {
   const shape = useMemo(() => {
     const s = new THREE.Shape()
     for (let i = 0; i < 6; i++) {
@@ -302,44 +323,102 @@ const HexBase = React.memo(({ corTopo = '#5a9e44', config = {} }) => {
 
   return (
     <group>
-      <mesh 
-        rotation={[-Math.PI / 2, 0, 0]} 
-        castShadow={hasShadows} 
-        receiveShadow={hasShadows}
-      >
+      <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow={hasShadows} receiveShadow={hasShadows}>
         <extrudeGeometry args={[shape, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.015, bevelSegments: 2 }]} />
         <meshStandardMaterial color="#4a7230" roughness={0.9} metalness={0} />
       </mesh>
-      <mesh 
-        rotation={[-Math.PI / 2, 0, 0]} 
-        position={[0, 0.2, 0]} 
-        receiveShadow={hasShadows}
-      >
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]} receiveShadow={hasShadows}>
         <shapeGeometry args={[shape]} />
         <meshStandardMaterial color={corTopo} roughness={0.8} metalness={0} />
       </mesh>
+
+      {selected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.21, 0]}>
+          <ringGeometry args={[HEX_SIZE * 0.87, HEX_SIZE * 0.99, 6]} />
+          <meshBasicMaterial color="#F27405" transparent opacity={0.95} />
+        </mesh>
+      )}
+
+      {moveMode && hovered && !selected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.21, 0]}>
+          <ringGeometry args={[HEX_SIZE * 0.87, HEX_SIZE * 0.99, 6]} />
+          <meshBasicMaterial color="#d4f08a" transparent opacity={0.6} />
+        </mesh>
+      )}
     </group>
   )
 })
 
 // =============================================
-// HEX TILE (com badge de moeda)
+// HEX TILE — 🔥 agora com "lift" ao selecionar
 // =============================================
-const HexTile = React.memo(({ hex, building, onClick, selected, moveMode, config = {}, onColetarMoeda }) => {
+const HexTile = React.memo(({ 
+  hex, 
+  building, 
+  onClick, 
+  selected, 
+  moveMode, 
+  config = {}, 
+  onColetarMoeda,
+  onHover,
+  isHovered,
+  isBlocked,
+}) => {
   const { x, z } = hexToWorld(hex, HEX_SIZE)
+  const groupRef = useRef()
+  const [targetY, setTargetY] = useState(0)
   
-  const handleClick = useCallback(() => {
+  // 🔥 Y alvo: sobe quando selecionado (0.14) ou hovered (0.06)
+  useEffect(() => {
+    if (selected) setTargetY(0.14)
+    else if (isHovered) setTargetY(0.06)
+    else setTargetY(0)
+  }, [selected, isHovered])
+
+  // 🔥 Animação suave do Y a cada frame
+  useFrame(() => {
+    if (!groupRef.current) return
+    const currentY = groupRef.current.position.y
+    const diff = targetY - currentY
+    if (Math.abs(diff) > 0.001) {
+      groupRef.current.position.y = currentY + diff * 0.15
+    } else {
+      groupRef.current.position.y = targetY
+    }
+  })
+  
+  const handleClick = useCallback((e) => {
+    e.stopPropagation()
     onClick(hex)
   }, [onClick, hex])
+
+  const handleOver = useCallback((e) => {
+    e.stopPropagation()
+    if (onHover) onHover(`${hex.q},${hex.r}`, true)
+  }, [onHover, hex])
+
+  const handleOut = useCallback((e) => {
+    e.stopPropagation()
+    if (onHover) onHover(`${hex.q},${hex.r}`, false)
+  }, [onHover, hex])
   
   const corTopo = building ? SETOR_CONFIG[building.setor]?.cor3 : undefined
   
   return (
     <group 
-      position={[x, 0, z]}
+      ref={groupRef}
+      position={[x, 0, z]} 
       onClick={handleClick}
+      onPointerOver={handleOver}
+      onPointerOut={handleOut}
     >
-      <HexBase corTopo={corTopo} config={config} />
+      <HexBase 
+        corTopo={corTopo} 
+        config={config}
+        selected={selected}
+        hovered={isHovered}
+        moveMode={moveMode}
+      />
       
       {building && (
         <>
@@ -356,21 +435,29 @@ const HexTile = React.memo(({ hex, building, onClick, selected, moveMode, config
           />
         </>
       )}
+
+      {moveMode && isHovered && isBlocked && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.22, 0]}>
+          <ringGeometry args={[HEX_SIZE * 0.5, HEX_SIZE * 0.65, 6]} />
+          <meshBasicMaterial color="#ff2222" transparent opacity={0.75} />
+        </mesh>
+      )}
+
+      {moveMode && isHovered && !isBlocked && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.22, 0]}>
+          <ringGeometry args={[HEX_SIZE * 0.45, HEX_SIZE * 0.58, 6]} />
+          <meshBasicMaterial color="#F27405" transparent opacity={0.85} />
+        </mesh>
+      )}
     </group>
   )
 })
 
 // =============================================
-// HEX TILE CLUSTER SATELITE (com badge de moeda)
+// HEX TILE CLUSTER SATELITE
 // =============================================
 const HexTileClusterSatelite = React.memo(({ 
-  hex, 
-  corTopo, 
-  modeloId, 
-  corFallback, 
-  config = {},
-  edificioDono,
-  onColetarMoeda,
+  hex, corTopo, modeloId, corFallback, config = {}, edificioDono, onColetarMoeda,
 }) => {
   const { x, z } = hexToWorld(hex, HEX_SIZE)
   return (
@@ -397,7 +484,7 @@ const HexTileClusterSatelite = React.memo(({
 })
 
 // =============================================
-// CAMADA 4: SEDE (🔥 agora recebe o porte atual)
+// CAMADA 4: SEDE
 // =============================================
 const Sede = React.memo(({ nomeEmpresa, porte, config = {} }) => {
   const sedeConfig = useMemo(() => resolverModeloSede(porte), [porte])
@@ -448,76 +535,294 @@ const Lights = React.memo(({ config = {} }) => {
 })
 
 // =============================================
-// 🔥 PAINEL DE PORTE + BOTÃO EXPANDIR (fora do Canvas)
+// 🔥 CONTROLADOR DE ZOOM (dentro do Canvas)
 // =============================================
-const PortePanel = ({ porte, onExpandir, podeExpandir }) => (
+const ZoomController = ({ controlsRef, zoomStep = 0.15, onReady }) => {
+  const { camera } = useThree()
+  
+  useEffect(() => {
+    if (onReady) onReady({
+      zoomIn: () => {
+        const dir = camera.position.clone().normalize()
+        const dist = camera.position.length()
+        const nova = Math.max(4, dist * (1 - zoomStep))
+        camera.position.copy(dir.multiplyScalar(nova))
+        controlsRef.current?.update()
+      },
+      zoomOut: () => {
+        const dir = camera.position.clone().normalize()
+        const dist = camera.position.length()
+        const nova = dist * (1 + zoomStep)
+        camera.position.copy(dir.multiplyScalar(nova))
+        controlsRef.current?.update()
+      },
+    })
+  }, [camera, controlsRef, zoomStep, onReady])
+  
+  return null
+}
+
+// =============================================
+// PAINEL DE PROGRESSO
+// =============================================
+const PainelProgresso = ({ nivel, porte, raio, atividadesMes, proximo, ultimoNivel }) => {
+  const falta = proximo ? Math.max(0, proximo.atvMin - atividadesMes) : 0
+  const percentual = proximo
+    ? Math.min(100, (atividadesMes / proximo.atvMin) * 100)
+    : 100
+
+  return (
+    <div style={{
+      position: 'absolute',
+      bottom: 10,
+      left: 10,
+      zIndex: 60,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+      pointerEvents: 'none',
+      minWidth: 240,
+      maxWidth: 280,
+    }}>
+      {proximo && !ultimoNivel && (
+        <div style={{
+          background: 'rgba(10,6,24,0.85)',
+          border: '1px solid rgba(242,116,5,0.4)',
+          borderRadius: 10,
+          padding: '8px 12px',
+          color: '#fff',
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.05em',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 6,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#FFB060', fontSize: 10 }}>PRÓX. NV {proximo.nivel}</span>
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
+              {atividadesMes} / {proximo.atvMin}
+            </span>
+          </div>
+          <div style={{
+            height: 6,
+            borderRadius: 3,
+            background: 'rgba(255,255,255,0.1)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${percentual}%`,
+              height: '100%',
+              background: 'linear-gradient(90deg, #F27405, #FFB060)',
+              transition: 'width 0.4s ease',
+            }} />
+          </div>
+          <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
+            faltam <b style={{ color: '#FFB060' }}>{falta}</b> atividade{falta !== 1 ? 's' : ''}
+          </div>
+        </div>
+      )}
+
+      {ultimoNivel && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(242,116,5,0.3), rgba(139,61,0,0.3))',
+          border: '1.5px solid #F27405',
+          borderRadius: 10,
+          padding: '6px 12px',
+          color: '#FFB060',
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: '0.08em',
+          textAlign: 'center',
+          textTransform: 'uppercase',
+        }}>
+          ★ Nível máximo atingido ★
+        </div>
+      )}
+    </div>
+  )
+}
+
+// =============================================
+// 🔥 BANNER DE MOVE MODE
+// =============================================
+const MoveBanner = ({ onCancel }) => (
   <div style={{
     position: 'absolute',
-    top: 20,
-    left: 20,
-    zIndex: 60,
+    top: 16,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 70,
+    background: 'linear-gradient(135deg,rgba(242,116,5,0.95),rgba(175,78,0,0.95))',
+    border: '1.5px solid #F27405',
+    boxShadow: '0 0 20px rgba(242,116,5,0.6), 0 4px 12px rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    padding: '10px 18px',
     display: 'flex',
-    flexDirection: 'column',
-    gap: 8,
+    alignItems: 'center',
+    gap: 12,
     fontFamily: "'Rajdhani','Segoe UI',sans-serif",
-    pointerEvents: 'none',
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 800,
+    letterSpacing: '.07em',
+    textTransform: 'uppercase',
+    pointerEvents: 'auto',
   }}>
-    {/* Label do porte atual */}
-    <div style={{
-      background: 'linear-gradient(135deg, rgba(76,20,169,0.95), rgba(30,8,80,0.95))',
-      border: '1.5px solid rgba(199,159,255,0.6)',
-      boxShadow: '0 0 18px rgba(100,17,217,0.55), 0 2px 8px rgba(0,0,0,0.6)',
-      borderRadius: 10,
-      padding: '6px 14px',
-      color: '#fff',
-      fontWeight: 800,
-      fontSize: 13,
-      letterSpacing: '0.06em',
-      textTransform: 'uppercase',
-      textShadow: '0 1px 4px rgba(0,0,0,0.6)',
-      whiteSpace: 'nowrap',
-      textAlign: 'center',
-    }}>
-      🏢 {porte}
-    </div>
-
-    {/* Botão Expandir */}
-    {podeExpandir && (
-      <button
-        onClick={onExpandir}
-        style={{
-          pointerEvents: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          padding: '8px 14px',
-          borderRadius: 10,
-          border: '1px solid #F2C230',
-          background: 'linear-gradient(135deg, #F27405 0%, #8B3D00 100%)',
-          boxShadow: '0 0 14px rgba(242,116,5,0.6), 0 2px 6px rgba(0,0,0,0.4)',
-          color: '#fff',
-          fontFamily: "'Rajdhani','Segoe UI',sans-serif",
-          fontWeight: 800,
-          fontSize: 12,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          cursor: 'pointer',
-          userSelect: 'none',
-          transition: 'transform 0.12s ease',
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.05)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
-        onPointerDown={(e) => { e.currentTarget.style.transform = 'scale(0.96)' }}
-        onPointerUp={(e) => { e.currentTarget.style.transform = 'scale(1.05)' }}
-        title="Expandir para o próximo porte"
-      >
-        <TrendingUp size={16} strokeWidth={2.8} />
-        Expandir Sede
-      </button>
-    )}
+    <Move size={16} strokeWidth={2.8} />
+    <span>Selecione o destino</span>
+    <button
+      onClick={onCancel}
+      style={{
+        background: 'rgba(0,0,0,0.3)',
+        border: '1px solid rgba(255,255,255,0.35)',
+        borderRadius: 7,
+        padding: '4px 11px',
+        cursor: 'pointer',
+        color: '#fff',
+        fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: '.06em',
+      }}
+    >
+      Cancelar
+    </button>
   </div>
 )
+
+// =============================================
+// 🔥 PAINEL DE AÇÃO DO EDIFÍCIO SELECIONADO
+// =============================================
+const PainelSelecionado = ({ building, isFullscreen, onMover, onFechar }) => {
+  if (!building) return null
+  const cfg = SETOR_CONFIG[building.setor] || SETOR_CONFIG.agricultura
+
+  return (
+    <div style={{
+      position: 'absolute',
+      top: 16,
+      right: 16,
+      zIndex: 70,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+      minWidth: 220,
+      maxWidth: 260,
+      pointerEvents: 'none',
+    }}>
+      {/* Card de info */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(12,8,28,0.95), rgba(26,14,58,0.95))',
+        border: `1.5px solid ${cfg.cor4}88`,
+        boxShadow: `0 4px 24px rgba(0,0,0,0.6), 0 0 16px ${cfg.cor3}44`,
+        borderRadius: 12,
+        padding: '10px 14px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        backdropFilter: 'blur(10px)',
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 8,
+          background: `linear-gradient(135deg, ${cfg.cor3} 0%, ${cfg.cor1} 100%)`,
+          border: `1px solid ${cfg.cor4}66`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <Building2 size={18} strokeWidth={2.5} color="#fff" />
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{
+            color: '#fff', fontWeight: 800, fontSize: 13,
+            letterSpacing: '0.04em',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+          }}>
+            {building.nome}
+          </div>
+          <div style={{
+            color: cfg.cor4, fontSize: 10, fontWeight: 700,
+            marginTop: 2, letterSpacing: '0.05em', textTransform: 'uppercase',
+          }}>
+            {cfg.label}
+          </div>
+        </div>
+      </div>
+
+      {/* Botões de ação */}
+      <div style={{ display: 'flex', gap: 6, pointerEvents: 'auto' }}>
+        {isFullscreen ? (
+          <button
+            onClick={onMover}
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              padding: '8px 12px',
+              borderRadius: 10,
+              border: '1px solid #F2C230',
+              background: 'linear-gradient(135deg, #F27405 0%, #8B3D00 100%)',
+              boxShadow: '0 0 14px rgba(242,116,5,0.5), 0 2px 6px rgba(0,0,0,0.4)',
+              color: '#fff',
+              fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+              fontWeight: 800,
+              fontSize: 11,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
+          >
+            <Move size={14} strokeWidth={2.8} />
+            Mover
+          </button>
+        ) : (
+          <div style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '8px 10px',
+            borderRadius: 10,
+            border: '1px solid rgba(242,116,5,0.45)',
+            background: 'rgba(242,116,5,0.12)',
+            color: '#FFB060',
+            fontSize: 10,
+            fontWeight: 800,
+            letterSpacing: '0.06em',
+            textAlign: 'center',
+            textTransform: 'uppercase',
+          }}>
+            ⛶ Entre em fullscreen para mover
+          </div>
+        )}
+        <button
+          onClick={onFechar}
+          style={{
+            padding: '8px 12px',
+            borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.18)',
+            background: 'rgba(255,255,255,0.07)',
+            color: 'rgba(255,255,255,0.65)',
+            fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+            fontWeight: 800,
+            fontSize: 12,
+            cursor: 'pointer',
+          }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+}
+
+
 
 // =============================================
 // TIPOS DE ATIVIDADE PERMITIDOS
@@ -532,26 +837,62 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
 
   const nomeEmpresa = 'Minha Cidade'
 
-  // 🔥 NOVO: estado do porte da sede (persiste no localStorage)
-  const [porte, setPorte] = useState(() => lerPorteSalvo())
-
   const [selectedKey, setSelectedKey] = useState(null)
   const [dayProgress, setDayProgress] = useState(0)
   const [moveMode, setMoveMode] = useState(false)
+  const [hoveredKey, setHoveredKey] = useState(null)
 
-  // 🔥 Expande para o próximo porte da lista
-  const handleExpandirSede = useCallback(() => {
-    setPorte(prev => {
-      const idx = PORTES_ORDENADOS.indexOf(prev)
-      const proximo = PORTES_ORDENADOS[Math.min(idx + 1, PORTES_ORDENADOS.length - 1)]
-      salvarPorte(proximo)
-      return proximo
-    })
+  // 🔥 NOVO: detecta fullscreen direto no componente
+  const [isFullscreen, setIsFullscreen] = useState(() => {
+    if (typeof document === 'undefined') return false
+    return !!document.fullscreenElement
+  })
+
+  // 🔥 NOVO: refs para controle de zoom externo
+  const controlsRef = useRef()
+  const zoomApiRef = useRef({ zoomIn: () => {}, zoomOut: () => {} })
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      const fs = !!document.fullscreenElement
+      setIsFullscreen(fs)
+      if (!fs) {
+        setMoveMode(false)
+        setSelectedKey(null)
+        setHoveredKey(null)
+      }
+    }
+    document.addEventListener('fullscreenchange', handleFsChange)
+    return () => document.removeEventListener('fullscreenchange', handleFsChange)
   }, [])
 
-  const podeExpandir = porte !== PORTES_ORDENADOS[PORTES_ORDENADOS.length - 1]
+  // 🔥 Toggle fullscreen
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {})
+    } else {
+      document.exitFullscreen?.().catch(() => {})
+    }
+  }, [])
 
-  // ── Edifícios ativos baseados nas moedas ──────────────────
+  // 🔥 Zoom handlers (usam a API registrada pelo ZoomController)
+  const handleZoomIn  = useCallback(() => zoomApiRef.current.zoomIn(), [])
+  const handleZoomOut = useCallback(() => zoomApiRef.current.zoomOut(), [])
+
+  // ── Contador de atividades do mês ──
+  const atividadesMes = useMemo(() => {
+    return atividades.filter(a => TIPOS_PERMITIDOS.includes(a.tipo)).length
+  }, [atividades])
+
+  // ── Nível atual + próximo ──
+  const nivelAtual = useMemo(() => calcularNivel(atividadesMes), [atividadesMes])
+  const proximo = useMemo(() => proximoNivel(atividadesMes), [atividadesMes])
+
+  const porte = nivelAtual.porte
+  const raioMapa = nivelAtual.raio
+  const ultimoNivel = !proximo
+
+  // ── Edifícios ativos ──
   const edificiosAtivos = useMemo(() => {
     const atividadesFiltradas = atividades.filter(a => 
       TIPOS_PERMITIDOS.includes(a.tipo)
@@ -559,8 +900,8 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
 
     return atividadesFiltradas.map((atividade, idx) => {
       const moedas = calcularMoedas(atividade)
-      const nivel = getNivelPorMoedas(moedas)
-      const edificio = escolherEdificioPorNivel(nivel)
+      const nivelMoeda = getNivelPorMoedas(moedas)
+      const edificio = escolherEdificioPorNivel(nivelMoeda)
       
       return {
         id: atividade.id ?? `atividade-${idx}`,
@@ -568,34 +909,32 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
         setor: edificio.setor,
         atividade,
         moedas,
-        nivel,
+        nivel: nivelMoeda,
         ehCluster: edificioEhCluster(edificio.nome),
         ehComposto: edificioEhComposto(edificio.nome),
       }
     })
   }, [atividades])
 
-  // ── Hex Grid ── RAIO 6 ──
+  // ── Hex Grid ──
   const hexGrid = useMemo(() => {
     const Tile = defineHex({ dimensions: HEX_SIZE, orientation: 'pointy' })
-    return Array.from(new Grid(Tile, spiral({ center: [0, 0], radius: 6 })))
-  }, [])
+    return Array.from(new Grid(Tile, spiral({ center: [0, 0], radius: raioMapa })))
+  }, [raioMapa])
 
-  // ── Hex Map ──
   const hexMap = useMemo(() => {
     const map = new Map()
     hexGrid.forEach(h => map.set(`${h.q},${h.r}`, h))
     return map
   }, [hexGrid])
 
-  // ── Edifício Map ──
   const edificioPorId = useMemo(() => {
     const map = new Map()
     edificiosAtivos.forEach(e => map.set(e.id, e))
     return map
   }, [edificiosAtivos])
 
-  // ── Posicionamento automático ──────────────────────────────
+  // ── Posicionamento ──
   const [posicoes, setPosicoes] = useState({})
 
   useEffect(() => {
@@ -631,7 +970,7 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
     const proximoLivre = (predicado = null) => {
       for (const k of keys) {
         if (k === '0,0') continue
-        if (posOcupadas.has(k)) continue        
+        if (posOcupadas.has(k)) continue
         if (predicado && !predicado(k)) continue
         return k
       }
@@ -701,61 +1040,173 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
     return mapa
   }, [posicoes, edificioPorId])
 
-  // ── Tiles para renderizar ──
   const tilesToRender = useMemo(() => {
     return hexGrid
       .map(h => ({ hex: h, key: `${h.q},${h.r}` }))
       .filter(({ key }) => key !== '0,0' && !satelites[key])
   }, [hexGrid, satelites])
 
+  // 🔥 Edifício selecionado
+  const selectedBuilding = useMemo(() => {
+    if (!selectedKey) return null
+    const id = posicoes[selectedKey]
+    return id ? edificioPorId.get(id) || null : null
+  }, [selectedKey, posicoes, edificioPorId])
+
+  // 🔥 Valida destino
+  const destinoEhValido = useCallback((destKey) => {
+    if (!selectedKey) return false
+    if (destKey === '0,0') return false
+    if (destKey === selectedKey) return false
+    if (posicoes[destKey]) return false
+    if (satelites[destKey]) return false
+
+    const edSendo = edificioPorId.get(posicoes[selectedKey])
+    if (!edSendo) return false
+
+    if (edSendo.ehCluster) {
+      const gridKeys = new Set(hexGrid.map(h => `${h.q},${h.r}`))
+      const ocupadasSemEle = new Set(['0,0'])
+
+      Object.entries(posicoes).forEach(([k, id]) => {
+        if (k === selectedKey) return
+        ocupadasSemEle.add(k)
+        const ed = edificioPorId.get(id)
+        if (ed?.ehCluster) {
+          const [q, r] = k.split(',').map(Number)
+          vizinhosDeHex(q, r).forEach(vk => ocupadasSemEle.add(vk))
+        }
+      })
+
+      Object.keys(satelites).forEach(k => {
+        if (k !== selectedKey) ocupadasSemEle.add(k)
+      })
+
+      const [dq, dr] = destKey.split(',').map(Number)
+      return vizinhosDeHex(dq, dr).every(
+        vk => !ocupadasSemEle.has(vk) && gridKeys.has(vk)
+      )
+    }
+
+    return true
+  }, [selectedKey, posicoes, satelites, edificioPorId, hexGrid])
+
+  // 🔥 Executa movimento
+  const moverEdificio = useCallback((destKey) => {
+    if (!destinoEhValido(destKey)) return false
+
+    setPosicoes(prev => {
+      const copy = { ...prev }
+      copy[destKey] = copy[selectedKey]
+      delete copy[selectedKey]
+      return copy
+    })
+
+    setSelectedKey(destKey)
+    setMoveMode(false)
+    setHoveredKey(null)
+    return true
+  }, [selectedKey, destinoEhValido])
+
   // ── Handle Click ──
   const handleHexClick = useCallback((hex) => {
     const key = `${hex.q},${hex.r}`
+
     if (moveMode) {
-      setMoveMode(false)
+      moverEdificio(key)
       return
     }
+
     const edId = posicoes[key]
-    if (!edId) return
+    if (!edId) {
+      setSelectedKey(null)
+      return
+    }
     setSelectedKey(prev => (prev === key ? null : key))
     const edificio = edificioPorId.get(edId)
     if (edificio?.atividade) {
       onSelecionarAtividade?.(edificio.atividade)
     }
-  }, [moveMode, posicoes, edificioPorId, onSelecionarAtividade])
+  }, [moveMode, posicoes, edificioPorId, onSelecionarAtividade, moverEdificio])
 
-  // 🔥 Callback: chamado ao coletar moeda
-  const handleColetarMoeda = useCallback((edificioId) => {
-    // console.log(`+1 moeda no edifício ${edificioId}`)
+  // 🔥 Handle hover
+  const handleHover = useCallback((key, isOver) => {
+    setHoveredKey(isOver ? key : null)
   }, [])
+
+  // 🔥 Ativar moveMode
+  const ativarMoveMode = useCallback(() => {
+    if (!isFullscreen) return
+    if (!selectedKey) return
+    setMoveMode(true)
+  }, [isFullscreen, selectedKey])
+
+  // 🔥 Cancelar moveMode
+  const cancelarMoveMode = useCallback(() => {
+    setMoveMode(false)
+    setHoveredKey(null)
+  }, [])
+
+  const handleColetarMoeda = useCallback((edificioId) => {
+    // hook para XP/global
+  }, [])
+
+  // ── Limites de zoom ──
+  const tamanhoMapaMundo = HEX_SIZE * 1.73 * (raioMapa + 2.5)
+  const minDistance = 4
+  const maxDistance = Math.max(45, tamanhoMapaMundo * 2.2)
 
   // ── Render ──
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden', backgroundColor: '#350973' }}>
-      
-      {/* 🔥 Painel de porte + botão Expandir */}
-      <PortePanel
+
+      {/* 🔥 Painel de progresso */}
+      <PainelProgresso
+        nivel={nivelAtual.nivel}
         porte={porte}
-        onExpandir={handleExpandirSede}
-        podeExpandir={podeExpandir}
+        raio={raioMapa}
+        atividadesMes={atividadesMes}
+        proximo={proximo}
+        ultimoNivel={ultimoNivel}
       />
 
+      {/* 🔥 Painel do edifício selecionado */}
+      {selectedBuilding && !moveMode && (
+        <PainelSelecionado
+          building={selectedBuilding}
+          isFullscreen={isFullscreen}
+          onMover={ativarMoveMode}
+          onFechar={() => setSelectedKey(null)}
+        />
+      )}
+
+      {/* 🔥 Banner de moveMode */}
+      {moveMode && (
+        <MoveBanner onCancel={cancelarMoveMode} />
+      )}
+
       <Canvas 
-        frameloop="demand"
+        frameloop={moveMode || hoveredKey ? "always" : "demand"}
         shadows={graphicsConfig.shadows}
         gl={{
           antialias: graphicsConfig.antialias,
           powerPreference: "high-performance",
         }}
-        camera={{ position: [18, 18, 18], fov: 26 }}
+        camera={{ position: [6, 6, 6], fov: 26 }}
+        onPointerMissed={() => {
+          if (!moveMode) setSelectedKey(null)
+        }}
       >
-        <SkyDome dayProgress={dayProgress} />
+        {/* 🔥 Registra API de zoom */}
+        <ZoomController controlsRef={controlsRef} onReady={(api) => { zoomApiRef.current = api }} />
+
+        <SkyDome dayProgress={dayProgress} raioMapa={raioMapa} />
         
         {graphicsConfig.oceanWaves ? (
-          <Ocean />
+          <Ocean raioMapa={raioMapa} />
         ) : (
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
-            <circleGeometry args={[8, 32]} />
+            <circleGeometry args={[HEX_SIZE * 1.73 * (raioMapa + 2.5), 32]} />
             <meshStandardMaterial color="#003366" roughness={0.3} metalness={0.1} />
           </mesh>
         )}
@@ -763,7 +1214,6 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
         <Lights config={graphicsConfig} />
 
         <group>
-          {/* 🔥 Sede recebe o porte atual — troca o modelo 3D */}
           <Sede nomeEmpresa={nomeEmpresa} porte={porte} config={graphicsConfig} />
 
           {Object.entries(satelites).map(([key, { corTopo, modeloId, corFallback, edificioDono }]) => {
@@ -797,6 +1247,9 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
                 moveMode={moveMode}
                 config={graphicsConfig}
                 onColetarMoeda={handleColetarMoeda}
+                onHover={handleHover}
+                isHovered={hoveredKey === key}
+                isBlocked={moveMode && hoveredKey === key && !destinoEhValido(key)}
               />
             )
           })}
@@ -811,16 +1264,19 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
         />
         
         <OrbitControls
+          ref={controlsRef}
           enablePan={false}
-          enableZoom={true}
-          enableRotate={true}
+          enableZoom={!moveMode}
+          enableRotate={!moveMode}
           rotateSpeed={0.5}
           minPolarAngle={Math.PI / 4}
           maxPolarAngle={Math.PI / 2.8}
+          minDistance={minDistance}
+          maxDistance={maxDistance}
           target={[0, 0, 0]}
           enableDamping={true}
           dampingFactor={0.08}
-          autoRotate={graphicsConfig.autoRotate}
+          autoRotate={graphicsConfig.autoRotate && !moveMode}
           autoRotateSpeed={graphicsConfig.autoRotateSpeed}
         />
       </Canvas>

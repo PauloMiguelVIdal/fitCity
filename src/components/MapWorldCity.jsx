@@ -1,10 +1,10 @@
 // ============================================================
 //  MapWorldFitCity.jsx - Mapa Baseado nas Cartas FitCity
-//  Raio: 6
+//  Raio: 7
 // ============================================================
 
 import React, { useState, useMemo, useContext, useEffect, useRef, useCallback } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas } from '@react-three/fiber'
 import { ContactShadows, OrbitControls, Html } from '@react-three/drei'
 import { defineHex, Grid, spiral } from 'honeycomb-grid'
 import * as THREE from 'three'
@@ -12,6 +12,7 @@ import { BuildingModel } from './BuildingModel'
 import { resolverModeloSede, MODELOS, EDIFICIO_PARA_MODELO } from './BuildingModels'
 import { useFrame } from '@react-three/fiber'
 import { useGraphicsConfig } from './GraphicsConfigContext'
+import { Building2, Move } from 'lucide-react'
 
 const HEX_SIZE = 0.6
 
@@ -281,7 +282,7 @@ const Ocean = React.memo(() => {
 })
 
 // ─────────────────────────────────────────────────────────────
-//  CAMADA 3: TERRA E EDIFÍCIOS
+//  CAMADA 3: HEX BASE
 // ─────────────────────────────────────────────────────────────
 const HexBase = React.memo(({ corTopo = '#5a9e44', config = {}, selected = false, hovered = false, moveMode = false }) => {
   const shape = useMemo(() => {
@@ -358,7 +359,7 @@ const HexTileClusterSatelite = React.memo(({ hex, corTopo, modeloId, corFallback
 })
 
 // ─────────────────────────────────────────────────────────────
-//  HexTile
+//  HexTile — 🔥 agora com LIFT ao selecionar/hover
 // ─────────────────────────────────────────────────────────────
 const HexTile = React.memo(({ 
   hex, 
@@ -372,6 +373,27 @@ const HexTile = React.memo(({
   isBlocked,
 }) => {
   const { x, z } = hexToWorld(hex, HEX_SIZE)
+  const groupRef = useRef()
+  const [targetY, setTargetY] = useState(0)
+  
+  // 🔥 Y alvo: sobe quando selecionado (0.14) ou hovered (0.06)
+  useEffect(() => {
+    if (selected) setTargetY(0.14)
+    else if (isHovered) setTargetY(0.06)
+    else setTargetY(0)
+  }, [selected, isHovered])
+
+  // 🔥 Animação suave do Y a cada frame
+  useFrame(() => {
+    if (!groupRef.current) return
+    const currentY = groupRef.current.position.y
+    const diff = targetY - currentY
+    if (Math.abs(diff) > 0.001) {
+      groupRef.current.position.y = currentY + diff * 0.15
+    } else {
+      groupRef.current.position.y = targetY
+    }
+  })
   
   const handleClick = useCallback((e) => {
     e.stopPropagation()
@@ -390,6 +412,7 @@ const HexTile = React.memo(({
   
   return (
     <group 
+      ref={groupRef}
       position={[x, 0, z]}
       onClick={handleClick}
       onPointerOver={handleOver}
@@ -432,7 +455,7 @@ const HexTile = React.memo(({
 })
 
 // ─────────────────────────────────────────────────────────────
-//  CAMADA 4: SEDE E LUZES
+//  CAMADA 4: SEDE
 // ─────────────────────────────────────────────────────────────
 const Sede = React.memo(({ nomeEmpresa, porte, config = {} }) => {
   const sedeConfig = useMemo(() => resolverModeloSede(porte), [porte])
@@ -489,9 +512,168 @@ const Lights = React.memo(({ config = {} }) => {
 })
 
 // ─────────────────────────────────────────────────────────────
+//  🔥 BANNER DE MOVE MODE
+// ─────────────────────────────────────────────────────────────
+const MoveBanner = ({ onCancel }) => (
+  <div style={{
+    position: 'absolute',
+    top: 20,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 70,
+    background: 'linear-gradient(135deg,rgba(242,116,5,0.95),rgba(175,78,0,0.95))',
+    border: '1.5px solid #F27405',
+    boxShadow: '0 0 20px rgba(242,116,5,0.6), 0 4px 12px rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    padding: '10px 18px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 800,
+    letterSpacing: '.07em',
+    textTransform: 'uppercase',
+    pointerEvents: 'auto',
+  }}>
+    <Move size={16} strokeWidth={2.8} />
+    <span>Selecione o destino</span>
+    <button
+      onClick={onCancel}
+      style={{
+        background: 'rgba(0,0,0,0.3)',
+        border: '1px solid rgba(255,255,255,0.35)',
+        borderRadius: 7,
+        padding: '4px 11px',
+        cursor: 'pointer',
+        color: '#fff',
+        fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: '.06em',
+      }}
+    >
+      Cancelar
+    </button>
+  </div>
+)
+
+// ─────────────────────────────────────────────────────────────
+//  🔥 PAINEL DO EDIFÍCIO SELECIONADO (canto inferior direito)
+// ─────────────────────────────────────────────────────────────
+const PainelSelecionado = ({ building, isFullscreen, moveMode, onMover, onFechar }) => {
+  if (!building) return null
+  const cfg = SETOR_CONFIG[building.setor] || SETOR_CONFIG.outros
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        right: 20,
+        bottom: 20,
+        zIndex: 70,
+        pointerEvents: 'none',
+        fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: 8,
+        minWidth: 220,
+        maxWidth: 280,
+      }}
+    >
+      {/* Card de info */}
+      <div style={{
+        background: 'linear-gradient(135deg, rgba(12,8,28,0.95), rgba(26,14,58,0.95))',
+        border: `1.5px solid ${cfg.cor4}88`,
+        boxShadow: `0 4px 24px rgba(0,0,0,0.6), 0 0 16px ${cfg.cor3}44`,
+        borderRadius: 12,
+        padding: '10px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        backdropFilter: 'blur(10px)',
+      }}>
+        <div style={{
+          width: 36, height: 36, borderRadius: 8,
+          background: `linear-gradient(135deg, ${cfg.cor3} 0%, ${cfg.cor1} 100%)`,
+          border: `1px solid ${cfg.cor4}66`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', flexShrink: 0,
+        }}>
+          <Building2 size={18} strokeWidth={2.5} color="#fff" />
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{
+            color: '#fff', fontWeight: 800, fontSize: 14,
+            letterSpacing: '0.04em',
+            textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {building.nome}
+          </div>
+          <div style={{
+            color: cfg.cor4,
+            fontSize: 11, fontWeight: 600, marginTop: 2, opacity: 0.85,
+            letterSpacing: '0.04em', textTransform: 'uppercase',
+          }}>
+            {cfg.label}
+          </div>
+        </div>
+      </div>
+
+      {/* Botão Mover — só aparece em fullscreen e fora do moveMode */}
+      {isFullscreen && !moveMode && (
+        <button
+          onClick={onMover}
+          style={{
+            pointerEvents: 'auto',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            background: 'linear-gradient(135deg,#4C14A9,#6411D9)',
+            border: '1px solid rgba(199,159,255,0.5)',
+            borderRadius: 10,
+            padding: '8px 14px',
+            cursor: 'pointer',
+            color: '#fff',
+            fontFamily: "'Rajdhani','Segoe UI',sans-serif",
+            fontSize: 12, fontWeight: 700, letterSpacing: '.08em',
+            boxShadow: '0 0 14px rgba(100,17,217,0.5)',
+            textTransform: 'uppercase',
+          }}
+        >
+          <Move size={14} strokeWidth={2.8} />
+          Mover edifício
+        </button>
+      )}
+
+      {/* Aviso se não estiver em fullscreen */}
+      {!isFullscreen && (
+        <div style={{
+          background: 'rgba(242,116,5,0.15)',
+          border: '1px solid rgba(242,116,5,0.4)',
+          borderRadius: 10,
+          padding: '6px 12px',
+          color: '#FFB060',
+          fontSize: 10, fontWeight: 700,
+          letterSpacing: '.06em',
+          textAlign: 'center',
+        }}>
+          ⛶ Entre em fullscreen para mover
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
 //  COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────────────────────
-export default function MapWorldFitCity({ isFullscreen = false }) {
+export default function MapWorldFitCity({ isFullscreen: isFullscreenProp = false }) {
   const { config: graphicsConfig } = useGraphicsConfig()
   
   const [selectedKey, setSelectedKey] = useState(null)
@@ -499,14 +681,32 @@ export default function MapWorldFitCity({ isFullscreen = false }) {
   const [moveMode, setMoveMode] = useState(false)
   const [hoveredKey, setHoveredKey] = useState(null)
 
-  // 🔥 NOVO: Se o usuário sair do fullscreen, limpa seleção e moveMode
+  // 🔥 Detecta fullscreen direto no componente (fallback se prop não vier)
+  const [isFullscreenState, setIsFullscreenState] = useState(() => {
+    if (typeof document === 'undefined') return isFullscreenProp
+    return !!document.fullscreenElement || isFullscreenProp
+  })
+
   useEffect(() => {
-    if (!isFullscreen) {
-      setMoveMode(false)
-      setSelectedKey(null)
-      setHoveredKey(null)
+    const handleFsChange = () => {
+      const fs = !!document.fullscreenElement
+      setIsFullscreenState(fs)
+      if (!fs) {
+        setMoveMode(false)
+        setSelectedKey(null)
+        setHoveredKey(null)
+      }
     }
-  }, [isFullscreen])
+    document.addEventListener('fullscreenchange', handleFsChange)
+    return () => document.removeEventListener('fullscreenchange', handleFsChange)
+  }, [])
+
+  // 🔥 Sincroniza com a prop (caso o pai controle o fullscreen)
+  useEffect(() => {
+    if (isFullscreenProp) setIsFullscreenState(true)
+  }, [isFullscreenProp])
+
+  const isFullscreen = isFullscreenState
 
   // ── Edifícios ativos (APENAS UMA UNIDADE DE CADA) ──────────
   const edificiosAtivos = useMemo(() => {
@@ -523,7 +723,7 @@ export default function MapWorldFitCity({ isFullscreen = false }) {
     })
   }, [])
 
-  // ── Hex Grid ── RAIO 6 ──
+  // ── Hex Grid ── RAIO 7 ──
   const hexGrid = useMemo(() => {
     const Tile = defineHex({ dimensions: HEX_SIZE, orientation: 'pointy' })
     return Array.from(new Grid(Tile, spiral({ center: [0, 0], radius: 7 })))
@@ -760,142 +960,22 @@ export default function MapWorldFitCity({ isFullscreen = false }) {
 
   // ── Render ──────────────────────────────────────────────────
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden', backgroundColor:'#350973' }}>
-      
-    
-{/* Nome do edifício selecionado — canto inferior direito */}
-{selectedBuilding && (
-  <div
-    style={{
-      position: 'fixed',
-      right: 20,          // 🔥 mudou
-      bottom: 20,         // 🔥 mudou (era top: 100)
-      zIndex: 60,
-      pointerEvents: 'none',
-      fontFamily: "'Rajdhani','Segoe UI',sans-serif",
-      display: 'flex',
-      flexDirection: 'column',   // 🔥 garante que botão fica embaixo
-      alignItems: 'stretch',     // 🔥 botão acompanha a largura do card
-      gap: 8,
-    }}
-  >
-    {/* Card de info */}
-    <div style={{
-      background: 'linear-gradient(135deg, rgba(12,8,28,0.95), rgba(26,14,58,0.95))',
-      border: `1.5px solid ${SETOR_CONFIG[selectedBuilding.setor]?.cor4 || '#888'}88`,
-      boxShadow: `0 4px 24px rgba(0,0,0,0.6), 0 0 16px ${SETOR_CONFIG[selectedBuilding.setor]?.cor3 || '#555'}44`,
-      borderRadius: 12,
-      padding: '10px 16px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      backdropFilter: 'blur(10px)',
-    }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: 8,
-        background: `linear-gradient(135deg, ${SETOR_CONFIG[selectedBuilding.setor]?.cor3 || '#555'} 0%, ${SETOR_CONFIG[selectedBuilding.setor]?.cor1 || '#111'} 100%)`,
-        border: `1px solid ${SETOR_CONFIG[selectedBuilding.setor]?.cor4 || '#888'}66`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        overflow: 'hidden', flexShrink: 0,
-      }}>
-        <img
-          src={`/imagens/${selectedBuilding.nome}.png`}
-          alt={selectedBuilding.nome}
-          style={{ width: '70%', height: '70%', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
-          onError={(e) => { e.target.style.display = 'none' }}
+    <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden', backgroundColor: '#350973' }}>
+
+      {/* 🔥 Painel do edifício selecionado (canto inferior direito) */}
+      {selectedBuilding && !moveMode && (
+        <PainelSelecionado
+          building={selectedBuilding}
+          isFullscreen={isFullscreen}
+          moveMode={moveMode}
+          onMover={ativarMoveMode}
+          onFechar={() => setSelectedKey(null)}
         />
-      </div>
-      <div>
-        <div style={{
-          color: '#fff', fontWeight: 800, fontSize: 14,
-          letterSpacing: '0.04em',
-          textShadow: '0 1px 4px rgba(0,0,0,0.6)',
-          maxWidth: 200, whiteSpace: 'nowrap',
-          overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>
-          {selectedBuilding.nome}
-        </div>
-        <div style={{
-          color: SETOR_CONFIG[selectedBuilding.setor]?.cor4 || '#888',
-          fontSize: 11, fontWeight: 600, marginTop: 2, opacity: 0.85,
-        }}>
-          {SETOR_CONFIG[selectedBuilding.setor]?.label || 'Outros'}
-        </div>
-      </div>
-    </div>
+      )}
 
-    {/* Botão Mover — só aparece em fullscreen */}
-    {isFullscreen && !moveMode && (
-      <button
-        onClick={ativarMoveMode}
-        style={{
-          pointerEvents: 'auto',
-          background: 'linear-gradient(135deg,#4C14A9,#6411D9)',
-          border: '1px solid rgba(199,159,255,0.5)',
-          borderRadius: 10,
-          padding: '8px 14px',
-          cursor: 'pointer',
-          color: '#fff',
-          fontFamily: "'Rajdhani','Segoe UI',sans-serif",
-          fontSize: 12, fontWeight: 700, letterSpacing: '.08em',
-          boxShadow: '0 0 14px rgba(100,17,217,0.5)',
-          textTransform: 'uppercase',
-        }}
-      >
-        ✦ Mover edifício
-      </button>
-    )}
-
-    {/* Aviso se não estiver em fullscreen */}
-    {!isFullscreen && (
-      <div style={{
-        background: 'rgba(242,116,5,0.15)',
-        border: '1px solid rgba(242,116,5,0.4)',
-        borderRadius: 10,
-        padding: '6px 12px',
-        color: '#FFB060',
-        fontSize: 10, fontWeight: 700,
-        letterSpacing: '.06em',
-        textAlign: 'center',
-      }}>
-        ⛶ Entre em fullscreen para mover
-      </div>
-    )}
-  </div>
-)}
-      {/* Banner de modo mover */}
+      {/* 🔥 Banner de modo mover */}
       {moveMode && (
-        <div style={{
-          position: 'fixed',
-          top: 20,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 60,
-          background: 'linear-gradient(135deg,rgba(242,116,5,0.94),rgba(175,78,0,0.94))',
-          border: '1px solid #F27405',
-          boxShadow: '0 0 16px rgba(242,116,5,0.5)',
-          borderRadius: 10,
-          padding: '8px 16px',
-          display: 'flex', alignItems: 'center', gap: 12,
-          fontFamily: "'Rajdhani',sans-serif",
-          color: '#fff', fontSize: 12, fontWeight: 700,
-          letterSpacing: '.07em',
-        }}>
-          <span>✦ Selecione o destino</span>
-          <button
-            onClick={cancelarMoveMode}
-            style={{
-              background: 'rgba(0,0,0,0.3)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              borderRadius: 6, padding: '3px 10px',
-              cursor: 'pointer', color: '#fff',
-              fontFamily: "'Rajdhani',sans-serif",
-              fontSize: 11, fontWeight: 700,
-            }}
-          >
-            Cancelar
-          </button>
-        </div>
+        <MoveBanner onCancel={cancelarMoveMode} />
       )}
 
       <Canvas 
