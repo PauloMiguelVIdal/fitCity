@@ -21,7 +21,10 @@ export default function App() {
   useOrientationLock()
 
   return (
-<div id="app-shell" className="h-dvh w-full max-w-[480px] mx-auto flex flex-col bg-fitcity-bg relative overflow-hidden">       <OrientationGuard />
+<div 
+// id="app-shell"
+ className="h-dvh w-full max-w-[480px] mx-auto flex flex-col bg-fitcity-bg relative overflow-hidden">    
+    {/* <OrientationGuard /> */}
       <GraphicsConfigProvider>
         <main className="flex-1 overflow-y-auto pb-[88px]">
           {tab === 'inicio' && (
