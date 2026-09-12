@@ -282,158 +282,169 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
                 </div>
 
                 {/* ─────── RÉGUA DE DESEMPENHO ─────── */}
-                <div className="relative pt-6 pb-1">
-                  {/* Badge flutuante com moedas */}
+
+<div className="relative pt-6 pb-1">
+  {/* 🔥 Clamp do nível para a régua nunca passar da última bolinha */}
+  {(() => {
+    const nivelClamp = Math.min(resultado.nivel, 5)
+    const pctPos = ((nivelClamp - 0.5) / 5) * 100
+
+    return (
+      <>
+        {/* Badge flutuante com moedas (sempre alinhado ao marcador, mas nunca além da última bolinha) */}
+        <div
+          className="absolute transition-all duration-500 ease-out z-20"
+          style={{
+            left: `${pctPos}%`,
+            top: 0,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          <div
+            className="rounded-lg px-3 py-1.5 whitespace-nowrap shadow-[0_6px_20px_rgba(242,116,5,0.6)]"
+            style={{
+              background: 'linear-gradient(135deg, #FF8C1A 0%, #E65A00 100%)',
+              border: '1.5px solid #FFB060',
+            }}
+          >
+            <span className="text-[11px] font-black text-white tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+              {resultado.moedas} Moedas
+            </span>
+          </div>
+          <div
+            className="w-2.5 h-2.5 rotate-45 mx-auto -mt-1.5"
+            style={{
+              background: '#E65A00',
+              borderRight: '1.5px solid #FFB060',
+              borderBottom: '1.5px solid #FFB060',
+            }}
+          />
+        </div>
+
+        {/* TRILHA DA BARRA */}
+        <div className="relative mt-6">
+          <div className="h-3 rounded-full bg-[#2a1d4a] border border-white/10" />
+
+          {/* Barra preenchida: nunca passa de 90% (última bolinha) */}
+          <div
+            className="absolute top-0 left-0 h-3 rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: `${pctPos}%`,
+              background: 'linear-gradient(90deg, #F27405 0%, #ea580c 100%)',
+              boxShadow: '0 0 12px rgba(242,116,5,0.5)',
+            }}
+          />
+
+          {[1, 2, 3, 4, 5].map((n) => {
+            const passado = n < nivelClamp
+            const ativa = n === nivelClamp
+            const futuro = n > nivelClamp
+
+            return (
+              <div
+                key={n}
+                className="absolute top-1/2 transition-all duration-500 z-10"
+                style={{
+                  left: `${((n - 0.5) / 5) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+              >
+                {passado && (
                   <div
-                    className="absolute transition-all duration-500 ease-out z-20"
+                    className="w-6 h-6 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(242,116,5,0.6)]"
                     style={{
-                      left: `${((resultado.nivel - 0.5) / 5) * 100}%`,
-                      top: 0,
-                      transform: 'translateX(-50%)',
+                      background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
                     }}
                   >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </div>
+                )}
+
+                {ativa && (
+                  <div className="relative">
                     <div
-                      className="rounded-lg px-3 py-1.5 whitespace-nowrap shadow-[0_6px_20px_rgba(242,116,5,0.6)]"
+                      className="absolute inset-0 rounded-full blur-md"
+                      style={{ background: '#F27405', opacity: 0.7 }}
+                    />
+                    <div
+                      className="relative w-8 h-8 rounded-full flex items-center justify-center"
                       style={{
-                        background: 'linear-gradient(135deg, #FF8C1A 0%, #E65A00 100%)',
-                        border: '1.5px solid #FFB060',
+                        background: '#fff',
+                        boxShadow:
+                          '0 0 0 2px #F27405, 0 0 0 3px #fff, 0 0 20px rgba(242,116,5,0.9)',
                       }}
                     >
-                      <span className="text-[11px] font-black text-white tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-                        {resultado.moedas} Moedas
-                      </span>
+                      <div
+                        className="w-full h-full rounded-full flex items-center justify-center"
+                        style={{
+                          background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
+                        }}
+                      >
+                        <span className="text-[12px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                          {resultado.nivel} {/* mostra o nível real, não o clampado */}
+                        </span>
+                      </div>
                     </div>
-                    <div
-                      className="w-2.5 h-2.5 rotate-45 mx-auto -mt-1.5"
-                      style={{
-                        background: '#E65A00',
-                        borderRight: '1.5px solid #FFB060',
-                        borderBottom: '1.5px solid #FFB060',
-                      }}
-                    />
                   </div>
+                )}
 
-                  {/* TRILHA DA BARRA */}
-                  <div className="relative mt-6">
-                    <div className="h-3 rounded-full bg-[#2a1d4a] border border-white/10" />
-
-                    <div
-                      className="absolute top-0 left-0 h-3 rounded-full transition-all duration-500 ease-out"
-                      style={{
-                        width: `${((resultado.nivel - 0.5) / 5) * 100}%`,
-                        background: 'linear-gradient(90deg, #F27405 0%, #ea580c 100%)',
-                        boxShadow: '0 0 12px rgba(242,116,5,0.5)',
-                      }}
-                    />
-
-                    {[1, 2, 3, 4, 5].map((n) => {
-                      const passado = n < resultado.nivel
-                      const ativa = n === resultado.nivel
-                      const futuro = n > resultado.nivel
-
-                      return (
-                        <div
-                          key={n}
-                          className="absolute top-1/2 transition-all duration-500 z-10"
-                          style={{
-                            left: `${((n - 0.5) / 5) * 100}%`,
-                            transform: 'translate(-50%, -50%)',
-                          }}
-                        >
-                          {passado && (
-                            <div
-                              className="w-6 h-6 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(242,116,5,0.6)]"
-                              style={{
-                                background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
-                              }}
-                            >
-                              <svg
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="white"
-                                strokeWidth="3.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <polyline points="20 6 9 17 4 12" />
-                              </svg>
-                            </div>
-                          )}
-
-                          {ativa && (
-                            <div className="relative">
-                              <div
-                                className="absolute inset-0 rounded-full blur-md"
-                                style={{ background: '#F27405', opacity: 0.7 }}
-                              />
-                              <div
-                                className="relative w-8 h-8 rounded-full flex items-center justify-center"
-                                style={{
-                                  background: '#fff',
-                                  boxShadow:
-                                    '0 0 0 2px #F27405, 0 0 0 3px #fff, 0 0 20px rgba(242,116,5,0.9)',
-                                }}
-                              >
-                                <div
-                                  className="w-full h-full rounded-full flex items-center justify-center"
-                                  style={{
-                                    background:
-                                      'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
-                                  }}
-                                >
-                                  <span className="text-[12px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                                    {n}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {futuro && (
-                            <div
-                              className="w-6 h-6 rounded-full bg-[#1a0a3a] flex items-center justify-center"
-                              style={{ border: '2px solid rgba(150, 100, 220, 0.5)' }}
-                            >
-                              <span className="text-[10px] font-black text-white/40">
-                                {n}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
+                {futuro && (
+                  <div
+                    className="w-6 h-6 rounded-full bg-[#1a0a3a] flex items-center justify-center"
+                    style={{ border: '2px solid rgba(150, 100, 220, 0.5)' }}
+                  >
+                    <span className="text-[10px] font-black text-white/40">
+                      {n}
+                    </span>
                   </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
 
-                  {/* LABELS DOS NÍVEIS */}
-                  <div className="relative mt-3 grid grid-cols-5">
-                    {[1, 2, 3, 4, 5].map((n) => {
-                      const ativa = resultado.nivel === n
-                      const faixa = FAIXAS[n - 1]
+        {/* LABELS DOS NÍVEIS */}
+        <div className="relative mt-3 grid grid-cols-5">
+          {[1, 2, 3, 4, 5].map((n) => {
+            const ativa = nivelClamp === n
+            const faixa = FAIXAS[n - 1]
 
-                      return (
-                        <div key={n} className="flex flex-col items-center gap-0.5">
-                          <span
-                            className={`text-[11px] font-bold transition-colors ${
-                              ativa ? 'text-orange-400' : 'text-white/45'
-                            }`}
-                          >
-                            Nv {n}
-                            {ativa && <span className="ml-1">(Atual)</span>}
-                          </span>
-                          <span
-                            className={`text-[10px] font-medium transition-colors ${
-                              ativa ? 'text-orange-300/80' : 'text-white/30'
-                            }`}
-                          >
-                            {faixa.min}-{faixa.max === Infinity ? '∞' : faixa.max}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
+            return (
+              <div key={n} className="flex flex-col items-center gap-0.5">
+                <span
+                  className={`text-[11px] font-bold transition-colors ${
+                    ativa ? 'text-orange-400' : 'text-white/45'
+                  }`}
+                >
+                  Nv {n}
+                  {ativa && <span className="ml-1">(Atual)</span>}
+                </span>
+                <span
+                  className={`text-[10px] font-medium transition-colors ${
+                    ativa ? 'text-orange-300/80' : 'text-white/30'
+                  }`}
+                >
+                  {faixa.min}-{faixa.max === Infinity ? '∞' : faixa.max}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </>
+    )
+  })()}
+</div>
               </div>
             </div>
           )}

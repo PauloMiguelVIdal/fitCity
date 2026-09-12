@@ -9,28 +9,31 @@ import ProfileScreen from './screens/ProfileScreen'
 import { GraphicsConfigProvider } from './components/GraphicsConfigContext'
 import { useAtividades } from './hooks/useAtividades'
 import RegistrarAtividadeModal from './components/RegistrarAtividadeModal'
-import { MockCardTest } from './components/MockCardStandalone'
+import { useOrientationLock } from './hooks/useOrientationLock'  // 🔥 NOVO
+import OrientationGuard from './components/OrientationGuard'
 
 export default function App() {
   const [tab, setTab] = useState('inicio')
   const [modalAberto, setModalAberto] = useState(false)
   const { atividades, adicionarAtividade } = useAtividades()
 
-  return (
+  // 🔥 Força modo retrato sempre
+  useOrientationLock()
 
-    <div className="h-dvh w-full max-w-[480px] mx-auto flex flex-col bg-fitcity-bg relative overflow-hidden">
-           <GraphicsConfigProvider>
-      <main className="flex-1 overflow-y-auto pb-[88px]">
-        {tab === 'inicio' && (
-          <HomeScreen onNavigate={setTab} atividades={atividades} onRegistrar={() => setModalAberto(true)} />
-        )}
-       {tab === 'cidade' && <CityScreen atividades={atividades} />}
-        {tab === 'inventario' && <InventoryScreen />}
-        {tab === 'atividades' && (
-          <ActivitiesScreen atividades={atividades} onRegistrar={() => setModalAberto(true)} />
-        )}
-        {tab === 'perfil' && <ProfileScreen />}
-      </main>
+  return (
+<div id="app-shell" className="h-dvh w-full max-w-[480px] mx-auto flex flex-col bg-fitcity-bg relative overflow-hidden">       <OrientationGuard />
+      <GraphicsConfigProvider>
+        <main className="flex-1 overflow-y-auto pb-[88px]">
+          {tab === 'inicio' && (
+            <HomeScreen onNavigate={setTab} atividades={atividades} onRegistrar={() => setModalAberto(true)} />
+          )}
+          {tab === 'cidade' && <CityScreen atividades={atividades} />}
+          {tab === 'inventario' && <InventoryScreen />}
+          {tab === 'atividades' && (
+            <ActivitiesScreen atividades={atividades} onRegistrar={() => setModalAberto(true)} />
+          )}
+          {tab === 'perfil' && <ProfileScreen />}
+        </main>
       </GraphicsConfigProvider>
       <BottomNav active={tab} onChange={setTab} />
       {modalAberto && (
@@ -39,10 +42,6 @@ export default function App() {
     </div>
   )
 }
-
-
-
-
 
 // import React, { useState } from 'react';
 // import CardMinimal from './components/CardColection';

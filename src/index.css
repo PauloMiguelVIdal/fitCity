@@ -13,4 +13,18 @@ html, body, #root {
   margin: 0;
 }
 
+html[data-force-portrait] body {
+  overflow: hidden;
+}
 
+html[data-force-portrait] #app-shell {
+  position: fixed;
+  top: 0;
+  left: 100%;
+  width: 100dvh;
+  height: 100dvw;
+  max-width: none !important;
+  margin: 0 !important;
+  transform-origin: 0 0;
+  transform: rotate(90deg);
+}
