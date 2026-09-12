@@ -1,90 +1,652 @@
 // src/components/RegistrarAtividadeModal.jsx
-import { useState } from 'react'
-import { X } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { X, Table2, Coins } from 'lucide-react'
 import { TIPOS_ATIVIDADE } from '../data/tiposAtividade'
 import { calcularMoedas } from '../utils/atividades'
+import {
+  getCartaPorMoedas,
+  getNivelPorMoedas,
+  LIMITE_NIVEL,
+} from '../utils/cartasPorMoedas'
+import CardFitCityActivities from './CardFitCityActivities'
 
+// =============================================
+// CONFIG
+// =============================================
 const LABEL_CAMPO = {
-  tempo: { label: 'Tempo (min)', placeholder: 'Ex: 45' },
-  distancia: { label: 'Distância (km)', placeholder: 'Ex: 8.2' },
-  calorias: { label: 'Calorias (kcal)', placeholder: 'Ex: 320' },
+  tempo: { label: 'DURAÇÃO (MIN)', placeholder: 'Ex: 34' },
+  distancia: { label: 'DISTÂNCIA (KM)', placeholder: 'Ex: 8.2' },
+  calorias: { label: 'CALORIAS (KCAL)', placeholder: 'Ex: 499' },
 }
 
+const FAIXAS = [
+  { nivel: 1, min: 1,  max: 5,  nome: 'Plantação De Vegetais',            xp: 5,  raridade: 'comum' },
+  { nivel: 2, min: 6,  max: 10, nome: 'Granja De Aves',                   xp: 10, raridade: 'incomum' },
+  { nivel: 3, min: 11, max: 20, nome: 'Fazenda De Vacas',                 xp: 20, raridade: 'raro' },
+  { nivel: 4, min: 21, max: 30, nome: 'Criação De Ovinos',                xp: 32, raridade: 'epico' },
+  { nivel: 5, min: 31, max: 50, nome: 'Cooperativa Agrícola',             xp: 50, raridade: 'lendario' },
+  { nivel: 6, min: 51, max: Infinity, nome: 'Centro De Comércio De Plantações', xp: 80, raridade: 'lendario' },
+]
+
+const COR_RARIDADE = {
+  comum:    '#9CA3AF',
+  incomum:  '#34D399',
+  raro:     '#60A5FA',
+  epico:    '#C084FC',
+  lendario: '#F27405',
+}
+
+// 🔥 Cores completas por setor (cor1, cor2, cor3, cor4)
+const SETOR_CORES = {
+  agricultura:  { cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50' },
+  tecnologia:   { cor1: '#A64B00', cor2: '#D45A00', cor3: '#FF6F00', cor4: '#FF8C42' },
+  industria:    { cor1: '#1A1A1A', cor2: '#4D4D4D', cor3: '#808080', cor4: '#B3B3B3' },
+  comercio:     { cor1: '#660000', cor2: '#A31919', cor3: '#E60000', cor4: '#FF4D4D' },
+  imobiliario:  { cor1: '#000066', cor2: '#1A1A8C', cor3: '#3333CC', cor4: '#6666FF' },
+  energia:      { cor1: '#665200', cor2: '#A37F19', cor3: '#E6B800', cor4: '#FFD966' },
+}
+
+// =============================================
+// HELPERS
+// =============================================
+function parseValor(v) {
+  if (v === '' || v == null) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+function bonusPorCalorias(calorias) {
+  const c = Number(calorias) || 0
+  if (c <= 0) return 0
+  return Math.floor(c / 100) * 2
+}
+
+function calcularXP(moedas, tempo) {
+  const t = Number(tempo) || 0
+  const bonusTempo = Math.floor(t / 10) * 1
+  return Math.round(moedas * 1.5) + bonusTempo
+}
+
+// =============================================
+// COMPONENTE PRINCIPAL
+// =============================================
 export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
-  const [tipo, setTipo] = useState(null)
+  const [tipo, setTipo] = useState('musculacao')
   const [valores, setValores] = useState({ tempo: '', distancia: '', calorias: '' })
-  const config = tipo ? TIPOS_ATIVIDADE[tipo] : null
-  const podeSalvar = tipo && config.campos.every(c => valores[c] !== '')
+  const [tabelaAberta, setTabelaAberta] = useState(false)
+
+  const config = TIPOS_ATIVIDADE[tipo]
+
+  const camposOk = useMemo(() => {
+    if (!config) return false
+    return config.campos.every((c) => {
+      const raw = valores[c]
+      if (raw === '' || raw == null) return false
+      const n = Number(raw)
+      return Number.isFinite(n) && n > 0
+    })
+  }, [config, valores])
+
+  const podeSalvar = !!tipo && camposOk
+
+  const resultado = useMemo(() => {
+    if (!tipo || !config || !camposOk) return null
+
+    const atividade = { tipo }
+    config.campos.forEach((c) => {
+      atividade[c] = parseValor(valores[c])
+    })
+
+    const moedasModelo = calcularMoedas(atividade)
+    if (!Number.isFinite(moedasModelo)) return null
+
+    const calorias = Number(atividade.calorias) || 0
+    const tempo = Number(atividade.tempo) || 0
+    const bonusCal = bonusPorCalorias(calorias)
+    const moedas = moedasModelo + bonusCal
+
+    if (!Number.isFinite(moedas) || moedas <= 0) return null
+
+    const nivel = getNivelPorMoedas(moedas)
+    const carta = getCartaPorMoedas(moedas)
+    const xp = calcularXP(moedas, tempo)
+
+    const faixaAtual = FAIXAS[nivel - 1]
+    const proximaLimite = faixaAtual.max === Infinity ? null : faixaAtual.max
+    const faltaProximo = proximaLimite != null
+      ? Math.max(0, proximaLimite + 1 - moedas)
+      : 0
+
+    return {
+      moedas,
+      bonusCal,
+      calorias,
+      tempo,
+      xp,
+      nivel,
+      carta,
+      faltaProximo,
+    }
+  }, [tipo, config, valores, camposOk])
+
+  // 🔥 Cores do setor com fallback seguro
+  const coresSetor = resultado
+    ? (SETOR_CORES[resultado.carta.setor] || SETOR_CORES.agricultura)
+    : SETOR_CORES.agricultura
+
+  const handleChangeTipo = (novoTipo) => {
+    setTipo(novoTipo)
+    setValores({ tempo: '', distancia: '', calorias: '' })
+  }
+
+  const handleChangeCampo = (campo, valor) => {
+    setValores((prev) => ({ ...prev, [campo]: valor }))
+  }
 
   const handleSalvar = () => {
-    if (!podeSalvar) return
+    if (!podeSalvar || !resultado) return
+
+    const atividade = { tipo }
+    config.campos.forEach((c) => {
+      atividade[c] = parseValor(valores[c])
+    })
+
     onSalvar({
-      tipo,
-      tempo: valores.tempo ? Number(valores.tempo) : null,
-      distancia: valores.distancia ? Number(valores.distancia) : null,
-      calorias: valores.calorias ? Number(valores.calorias) : null,
-      moedas: calcularMoedas(tipo, valores),
+      ...atividade,
+      moedas: resultado.moedas,
+      xp: resultado.xp,
     })
     onClose()
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <>
+      {/* ═══════════════ MODAL PRINCIPAL ═══════════════ */}
       <div
-        className="w-full max-w-[480px] bg-fitcity-bg border-t border-white/10 rounded-t-3xl p-5 pb-8 flex flex-col gap-4 shadow-[0_-15px_50px_rgba(0,0,0,0.5)]"
+        className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <div
+          className="w-full max-w-[480px] bg-fitcity-bg border-t border-white/10 rounded-t-3xl p-5 pb-3 flex flex-col gap-4 shadow-[0_-15px_50px_rgba(0,0,0,0.5)] max-h-[98vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* HEADER */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-white">Resumo do Treino</h2>
+            <button
+              onClick={onClose}
+              className="bg-white/10 hover:bg-white/20 rounded-full p-1.5 transition-colors"
+            >
+              <X size={18} className="text-white/70" />
+            </button>
+          </div>
+
+          {/* ═══════════════ CONTAINER UNIFICADO ═══════════════ */}
+          {resultado && (
+            <div className="relative rounded-2xl overflow-hidden">
+
+              {/* 🔥 Overlay translúcido com gradiente do setor + roxo */}
+              <div
+                className="absolute inset-0 rounded-2xl pointer-events-none"
+                style={{
+                  background: `linear-gradient(160deg, ${coresSetor.cor1} 0%, ${coresSetor.cor3} 40%, #350973 80%,  #6411D9 100%)`,
+                  opacity: 0.65,
+                  boxShadow: `0 4px 20px ${coresSetor.cor4}33`,
+                }}
+              />
+
+              {/* Conteúdo */}
+              <div className="relative flex flex-col gap-4 p-4">
+
+                {/* ─────── BLOCO SUPERIOR: CARTA + RECOMPENSAS ─────── */}
+                <div className="grid grid-cols-[160px_1fr] gap-3">
+                  {/* COLUNA ESQUERDA: CARTA */}
+                  <div className="flex flex-col">
+                    <CardFitCityActivities
+                      nome={resultado.carta.nome}
+                      raridade={resultado.carta.raridade}
+                      quantidade={1}
+                      cor1={resultado.carta.cor1}
+                      cor2={resultado.carta.cor2}
+                      cor3={resultado.carta.cor3}
+                      cor4={resultado.carta.cor4}
+                    />
+                  </div>
+
+                  {/* COLUNA DIREITA: RECOMPENSAS */}
+                  <div className="flex flex-col gap-2">
+                    {/* Recompensa em moedas */}
+                    <div className="bg-orange-600/20 backdrop-blur-sm border border-orange-500/50 rounded-2xl p-3">
+                      <span className="text-[10px] font-bold text-orange-200 uppercase tracking-wider">
+                        Recompensa
+                      </span>
+                      <div className="flex items-baseline gap-2 mt-1">
+                        <span className="text-2xl font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+                          +{resultado.moedas}
+                        </span>
+                        <Coins size={20} className="text-orange-400" strokeWidth={2.5} />
+                      </div>
+                      {resultado.bonusCal > 0 && (
+                        <p className="text-[10px] text-orange-100/80 mt-0.5 leading-tight">
+                          (inclui +{resultado.bonusCal} por {resultado.calorias} kcal)
+                        </p>
+                      )}
+                    </div>
+
+                    {/* XP conquistado */}
+                    <div className="bg-purple-700/25 backdrop-blur-sm border border-purple-500/50 rounded-2xl p-3">
+                      <span className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">
+                        XP Conquistado
+                      </span>
+                      <div className="flex items-baseline gap-2 mt-1">
+                        <span className="text-xl font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+                          +{resultado.xp}
+                        </span>
+                        <span className="text-xs font-bold text-purple-200">XP</span>
+                      </div>
+                      <p className="text-[10px] text-purple-100/80 mt-0.5 leading-tight">
+                        Cidade Conquista
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ─────── DIVISOR ─────── */}
+                <div className="h-px bg-white/10" />
+
+                {/* ─────── LINHA: FALTAM + BOTÃO REGRAS ─────── */}
+                <div className="flex items-center justify-between gap-2">
+                  {resultado.faltaProximo > 0 ? (
+                    <p className="text-[11px] text-white/75 leading-tight">
+                      Faltam{' '}
+                      <b className="text-orange-400">
+                        {resultado.faltaProximo} moedas
+                      </b>{' '}
+                      para o próximo nível
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-orange-400 font-bold leading-tight">
+                      ★ Nível máximo de carta!
+                    </p>
+                  )}
+
+                  <button
+                    onClick={() => setTabelaAberta(true)}
+                    className="flex items-center gap-1.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/50 rounded-lg px-2.5 py-1.5 transition-colors flex-shrink-0"
+                  >
+                    <Table2 size={12} className="text-purple-300" />
+                    <span className="text-[10px] font-bold text-purple-200">
+                      Regras
+                    </span>
+                  </button>
+                </div>
+
+                {/* ─────── RÉGUA DE DESEMPENHO ─────── */}
+                <div className="relative pt-6 pb-1">
+                  {/* Badge flutuante com moedas */}
+                  <div
+                    className="absolute transition-all duration-500 ease-out z-20"
+                    style={{
+                      left: `${((resultado.nivel - 0.5) / 5) * 100}%`,
+                      top: 0,
+                      transform: 'translateX(-50%)',
+                    }}
+                  >
+                    <div
+                      className="rounded-lg px-3 py-1.5 whitespace-nowrap shadow-[0_6px_20px_rgba(242,116,5,0.6)]"
+                      style={{
+                        background: 'linear-gradient(135deg, #FF8C1A 0%, #E65A00 100%)',
+                        border: '1.5px solid #FFB060',
+                      }}
+                    >
+                      <span className="text-[11px] font-black text-white tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+                        {resultado.moedas} Moedas
+                      </span>
+                    </div>
+                    <div
+                      className="w-2.5 h-2.5 rotate-45 mx-auto -mt-1.5"
+                      style={{
+                        background: '#E65A00',
+                        borderRight: '1.5px solid #FFB060',
+                        borderBottom: '1.5px solid #FFB060',
+                      }}
+                    />
+                  </div>
+
+                  {/* TRILHA DA BARRA */}
+                  <div className="relative mt-6">
+                    <div className="h-3 rounded-full bg-[#2a1d4a] border border-white/10" />
+
+                    <div
+                      className="absolute top-0 left-0 h-3 rounded-full transition-all duration-500 ease-out"
+                      style={{
+                        width: `${((resultado.nivel - 0.5) / 5) * 100}%`,
+                        background: 'linear-gradient(90deg, #F27405 0%, #ea580c 100%)',
+                        boxShadow: '0 0 12px rgba(242,116,5,0.5)',
+                      }}
+                    />
+
+                    {[1, 2, 3, 4, 5].map((n) => {
+                      const passado = n < resultado.nivel
+                      const ativa = n === resultado.nivel
+                      const futuro = n > resultado.nivel
+
+                      return (
+                        <div
+                          key={n}
+                          className="absolute top-1/2 transition-all duration-500 z-10"
+                          style={{
+                            left: `${((n - 0.5) / 5) * 100}%`,
+                            transform: 'translate(-50%, -50%)',
+                          }}
+                        >
+                          {passado && (
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(242,116,5,0.6)]"
+                              style={{
+                                background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
+                              }}
+                            >
+                              <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="white"
+                                strokeWidth="3.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            </div>
+                          )}
+
+                          {ativa && (
+                            <div className="relative">
+                              <div
+                                className="absolute inset-0 rounded-full blur-md"
+                                style={{ background: '#F27405', opacity: 0.7 }}
+                              />
+                              <div
+                                className="relative w-8 h-8 rounded-full flex items-center justify-center"
+                                style={{
+                                  background: '#fff',
+                                  boxShadow:
+                                    '0 0 0 2px #F27405, 0 0 0 3px #fff, 0 0 20px rgba(242,116,5,0.9)',
+                                }}
+                              >
+                                <div
+                                  className="w-full h-full rounded-full flex items-center justify-center"
+                                  style={{
+                                    background:
+                                      'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
+                                  }}
+                                >
+                                  <span className="text-[12px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                                    {n}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {futuro && (
+                            <div
+                              className="w-6 h-6 rounded-full bg-[#1a0a3a] flex items-center justify-center"
+                              style={{ border: '2px solid rgba(150, 100, 220, 0.5)' }}
+                            >
+                              <span className="text-[10px] font-black text-white/40">
+                                {n}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* LABELS DOS NÍVEIS */}
+                  <div className="relative mt-3 grid grid-cols-5">
+                    {[1, 2, 3, 4, 5].map((n) => {
+                      const ativa = resultado.nivel === n
+                      const faixa = FAIXAS[n - 1]
+
+                      return (
+                        <div key={n} className="flex flex-col items-center gap-0.5">
+                          <span
+                            className={`text-[11px] font-bold transition-colors ${
+                              ativa ? 'text-orange-400' : 'text-white/45'
+                            }`}
+                          >
+                            Nv {n}
+                            {ativa && <span className="ml-1">(Atual)</span>}
+                          </span>
+                          <span
+                            className={`text-[10px] font-medium transition-colors ${
+                              ativa ? 'text-orange-300/80' : 'text-white/30'
+                            }`}
+                          >
+                            {faixa.min}-{faixa.max === Infinity ? '∞' : faixa.max}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════════ DADOS DA ATIVIDADE ═══════════════ */}
+          <div className="flex flex-col gap-3 mt-2">
+            <h3 className="text-base font-bold text-white">
+              Dados da Atividade Realizada
+            </h3>
+
+            {/* Seleção de tipo */}
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(TIPOS_ATIVIDADE).map(([id, { label, Icon }]) => {
+                const ativo = tipo === id
+                return (
+                  <button
+                    key={id}
+                    onClick={() => handleChangeTipo(id)}
+                    className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 border transition-all ${
+                      ativo
+                        ? 'bg-gradient-to-br from-fitcity-energy to-orange-600 border-transparent shadow-[0_6px_18px_rgba(242,116,5,0.45)]'
+                        : 'bg-white/5 border-white/10 text-white/50'
+                    }`}
+                  >
+                    <Icon size={16} className={ativo ? 'text-white' : 'text-fitcity-energy/70'} />
+                    <span
+                      className={`text-xs font-bold ${
+                        ativo ? 'text-white' : 'text-white/50'
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Campos inline */}
+            {config && (
+              <div
+                className={`grid gap-3 ${
+                  config.campos.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+                }`}
+              >
+                {config.campos.map((campo) => (
+                  <div key={campo} className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-fitcity-energy uppercase tracking-wider">
+                      {LABEL_CAMPO[campo].label}
+                    </label>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={valores[campo]}
+                      onChange={(e) => handleChangeCampo(campo, e.target.value)}
+                      placeholder={LABEL_CAMPO[campo].placeholder}
+                      className="bg-white/5 border-2 border-white/10 rounded-xl px-3 py-3 text-white text-base font-bold placeholder:text-white/20 placeholder:font-normal outline-none focus:border-fitcity-energy transition-colors"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ═══════════════ BOTÃO SALVAR ═══════════════ */}
+          <button
+            onClick={handleSalvar}
+            disabled={!podeSalvar}
+            className="mt-1 bg-gradient-to-r from-fitcity-energy to-orange-600 rounded-2xl py-4 font-black text-white text-sm tracking-wider uppercase shadow-[0_10px_25px_rgba(242,116,5,0.45)] disabled:opacity-40 disabled:shadow-none transition-all active:scale-[0.98]"
+          >
+salvar e coletar recompensas          </button>
+        </div>
+      </div>
+
+      {/* ═══════════════ MODAL DE TABELA (OVERLAY) ═══════════════ */}
+      {tabelaAberta && (
+        <TabelaFaixas
+          onClose={() => setTabelaAberta(false)}
+          nivelAtual={resultado?.nivel ?? 1}
+          moedasAtuais={resultado?.moedas ?? 0}
+        />
+      )}
+    </>
+  )
+}
+
+
+// =============================================
+// MODAL DE TABELA DE FAIXAS (overlay com mesmo tamanho do principal)
+// =============================================
+function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/80 backdrop-blur-md"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-[480px] bg-fitcity-bg border-t border-white/10 rounded-t-3xl p-5 pb-3 flex flex-col gap-4 shadow-[0_-15px_50px_rgba(0,0,0,0.6)] max-h-[98vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* HEADER */}
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">Registrar atividade</h2>
-          <button onClick={onClose} className="bg-white/10 rounded-full p-1.5">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              📊 Faixas de Recompensa
+            </h2>
+            <p className="text-[11px] text-white/50 mt-0.5">
+              Entenda como a equivalência de esforço do seu treino gera cartas e moedas.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="bg-white/10 hover:bg-white/20 rounded-full p-1.5 transition-colors flex-shrink-0"
+          >
             <X size={18} className="text-white/70" />
           </button>
         </div>
 
-        <div className="grid grid-cols-4 gap-2">
-          {Object.entries(TIPOS_ATIVIDADE).map(([id, { label, Icon }]) => {
-            const ativo = tipo === id
+        {/* CABEÇALHO DA TABELA */}
+        <div className="grid grid-cols-[60px_90px_1fr_70px] gap-2 px-3 py-2 text-[10px] font-bold text-white/45 uppercase tracking-wider border-b border-white/5">
+          <span>Nível</span>
+          <span>Faixa de Moedas</span>
+          <span>Carta / Edificação</span>
+          <span className="text-right">XP Cidade</span>
+        </div>
+
+        {/* LINHAS DA TABELA */}
+        <div className="flex flex-col">
+          {FAIXAS.map((faixa) => {
+            const ativa = nivelAtual === faixa.nivel
+            const cor = COR_RARIDADE[faixa.raridade]
+
             return (
-              <button
-                key={id}
-                onClick={() => setTipo(id)}
-                className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border ${
-                  ativo
-                    ? 'bg-gradient-to-br from-fitcity-energy to-orange-600 border-transparent shadow-[0_6px_18px_rgba(242,116,5,0.45)]'
-                    : 'bg-white/5 border-white/10 text-white/60'
+              <div
+                key={faixa.nivel}
+                className={`grid grid-cols-[60px_90px_1fr_70px] gap-2 items-center px-3 py-3 rounded-xl border transition-all ${
+                  ativa
+                    ? 'bg-fitcity-energy/10 border-fitcity-energy/50'
+                    : 'bg-white/[0.02] border-white/5'
                 }`}
               >
-                <Icon size={20} className={ativo ? 'text-white' : 'text-fitcity-energy'} />
-                <span className="text-[10px] font-medium text-center leading-tight">{label}</span>
-              </button>
+                <span
+                  className={`text-xs font-black ${
+                    ativa ? 'text-fitcity-energy' : 'text-white/50'
+                  }`}
+                >
+                  Nv {faixa.nivel}
+                </span>
+
+                <span
+                  className={`text-[11px] font-bold ${
+                    ativa ? 'text-fitcity-energy' : 'text-white/60'
+                  }`}
+                >
+                  {faixa.min} a {faixa.max === Infinity ? '∞' : faixa.max} 🪙
+                </span>
+
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div
+                    className="w-2 h-2 rounded-full flex-shrink-0"
+                    style={{
+                      background: cor,
+                      boxShadow: ativa ? `0 0 8px ${cor}` : 'none',
+                    }}
+                  />
+                  <span
+                    className={`text-[11px] truncate ${
+                      ativa ? 'text-white font-bold' : 'text-white/60'
+                    }`}
+                  >
+                    {faixa.nome}
+                  </span>
+                </div>
+
+                <div className="flex flex-col items-end">
+                  <span
+                    className={`text-[11px] font-bold ${
+                      ativa ? 'text-purple-300' : 'text-white/50'
+                    }`}
+                  >
+                    +{faixa.xp} XP
+                  </span>
+                  {ativa && (
+                    <span className="text-[9px] font-black text-fitcity-energy uppercase mt-0.5">
+                      Você está aqui
+                    </span>
+                  )}
+                </div>
+              </div>
             )
           })}
         </div>
 
-        {config && (
-          <div className="flex flex-col gap-3">
-            {config.campos.map(campo => (
-              <div key={campo} className="flex flex-col gap-1">
-                <label className="text-xs text-white/50">{LABEL_CAMPO[campo].label}</label>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={valores[campo]}
-                  onChange={(e) => setValores(prev => ({ ...prev, [campo]: e.target.value }))}
-                  placeholder={LABEL_CAMPO[campo].placeholder}
-                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder:text-white/30 outline-none focus:border-fitcity-energy"
-                />
-              </div>
-            ))}
-          </div>
-        )}
+        {/* EXPLICAÇÃO */}
+        <div className="bg-emerald-600/10 border border-emerald-500/30 rounded-2xl p-4">
+          <h3 className="text-xs font-bold text-emerald-300 mb-1.5 flex items-center gap-1.5">
+            💡 Como funciona o cálculo de moedas?
+          </h3>
+          <p className="text-[11px] text-emerald-100/80 leading-relaxed">
+            As moedas são calculadas combinando o tempo total da atividade com as
+            calorias queimadas no treino.
+          </p>
+          <p className="text-[11px] text-emerald-100/80 leading-relaxed mt-1.5">
+            O sistema reconhece seu esforço real, transformando sua consistência em
+            desenvolvimento visível para a cidade.
+          </p>
+        </div>
 
+        {/* BOTÃO FECHAR */}
         <button
-          onClick={handleSalvar}
-          disabled={!podeSalvar}
-          className="mt-2 bg-gradient-to-r from-fitcity-energy to-orange-600 rounded-2xl py-3.5 font-semibold text-white shadow-[0_10px_25px_rgba(242,116,5,0.45)] disabled:opacity-40 disabled:shadow-none"
+          onClick={onClose}
+          className="mt-1 bg-gradient-to-r from-fitcity-energy to-orange-600 rounded-2xl py-4 font-black text-white text-sm tracking-wider uppercase shadow-[0_10px_25px_rgba(242,116,5,0.45)] transition-all active:scale-[0.98]"
         >
-          Salvar atividade
+          Fechar
         </button>
       </div>
     </div>

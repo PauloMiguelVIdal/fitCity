@@ -178,44 +178,7 @@ export default function CardFitCityActivities({
       </div>
 
       {/* ─── ÁREA DEDICADA PARA INFORMAÇÕES DA ATIVIDADE ─── */}
-      <div 
-        className="relative z-10 w-full rounded-xl p-3"
-        style={{
-          background: `rgba(0, 0, 0, 0.5)`,
-          border: `1px solid ${corBorder}`,
-          backdropFilter: 'blur(6px)',
-        }}
-      >
-        {/* Ícone da atividade + Detalhe - MAIORES */}
-        <div className="flex items-center justify-center gap-2.5">
-          {IconAtividade && (
-            <IconAtividade 
-              size={20} 
-              className="text-white/80" 
-              style={{ filter: `drop-shadow(0 0 8px ${cor}66)` }}
-            />
-          )}
-          {detalheAtividade && (
-            <span className="text-xs text-white/80 font-medium">
-              {detalheAtividade}
-            </span>
-          )}
-        </div>
 
-        {/* Data + Moedas - MAIORES */}
-        <div className="flex items-center justify-center gap-4 mt-1.5">
-          {dataFormatada && (
-            <span className="text-[10px] text-white/50">
-              📅 {dataFormatada}
-            </span>
-          )}
-          {moedasGanhas != null && (
-            <span className="flex items-center gap-1 text-sm font-bold text-fitcity-energy">
-              +{moedasGanhas} 🪙
-            </span>
-          )}
-        </div>
-      </div>
     </div>
   )
 }
