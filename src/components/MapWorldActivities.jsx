@@ -1,155 +1,17 @@
 // src/components/MapWorldActivities.jsx
+// 🔥 Componente PURO DE RENDERIZAÇÃO — toda lógica fica no pai
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { ContactShadows, OrbitControls, Html } from '@react-three/drei'
-import { defineHex, Grid, spiral } from 'honeycomb-grid'
 import * as THREE from 'three'
 import { BuildingModel } from './BuildingModel'
 import { resolverModeloSede, MODELOS, EDIFICIO_PARA_MODELO } from './BuildingModels'
 import { useFrame } from '@react-three/fiber'
 import { useGraphicsConfig } from './GraphicsConfigContext'
-import { calcularMoedas } from '../utils/atividades'
-import {
-  Coins, Building2, Move,
-  Sparkles, Map as MapIcon, ArrowUpRight
-} from 'lucide-react'
+import { Coins, Building2, Move } from 'lucide-react'
 
 const HEX_SIZE = 0.6
-
-// =============================================
-// CONSTANTES
-// =============================================
-const STORAGE_PREFIX_COINS = 'fitcity_moedas_'
-const STORAGE_COINS_DATE  = 'fitcity_moedas_data_'
-const STORAGE_NIVEL_EXP   = 'fitcity_nivel_expandido'
-
-// =============================================
-// TABELA DE NÍVEIS
-// =============================================
-const TABELA_NIVEIS = [
-  { nivel: 1,  porte: 'Micro Empresa',             raio: 3, atvMin: 1  },
-  { nivel: 2,  porte: 'Sociedade Limitada',        raio: 3, atvMin: 3  },
-  { nivel: 3,  porte: 'Empresa Regional',          raio: 3, atvMin: 7  },
-  { nivel: 4,  porte: 'Companhia Local',           raio: 4, atvMin: 12 },
-  { nivel: 5,  porte: 'Empresa Estadual',          raio: 5, atvMin: 16 },
-  { nivel: 6,  porte: 'Companhia Nacional',        raio: 6, atvMin: 21 },
-  { nivel: 7,  porte: 'Corporação Multissetorial', raio: 6, atvMin: 27 },
-  { nivel: 8,  porte: 'Grupo Empresarial',         raio: 7, atvMin: 34 },
-  { nivel: 9,  porte: 'Conglomerado Global',       raio: 7, atvMin: 42 },
-  { nivel: 10, porte: 'Mega Holding',              raio: 8, atvMin: 50 },
-]
-
-function calcularNivel(atividadesMes) {
-  let resultado = TABELA_NIVEIS[0]
-  for (const item of TABELA_NIVEIS) {
-    if (atividadesMes >= item.atvMin) resultado = item
-    else break
-  }
-  return resultado
-}
-
-function proximoNivel(atividadesMes) {
-  const atual = calcularNivel(atividadesMes)
-  const idx = TABELA_NIVEIS.findIndex(n => n.nivel === atual.nivel)
-  if (idx < 0 || idx >= TABELA_NIVEIS.length - 1) return null
-  return TABELA_NIVEIS[idx + 1]
-}
-
-// Conta hexágonos numa espiral de raio R (incluindo o centro)
-function hexCountPorRaio(raio) {
-  return 1 + 3 * raio * (raio + 1)
-}
-
-// Diferença de hex entre dois raios
-function hexDiff(raioAntigo, raioNovo) {
-  return hexCountPorRaio(raioNovo) - hexCountPorRaio(raioAntigo)
-}
-
-// =============================================
-// HELPERS: nível expandido (persistência)
-// =============================================
-function lerNivelExpandido() {
-  if (typeof window === 'undefined') return 1
-  try {
-    const v = window.localStorage.getItem(STORAGE_NIVEL_EXP)
-    if (v) {
-      const n = parseInt(v, 10)
-      if (!isNaN(n) && n >= 1 && n <= 10) return n
-    }
-  } catch {}
-  return 1
-}
-
-function salvarNivelExpandido(nivel) {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(STORAGE_NIVEL_EXP, String(nivel))
-  } catch {}
-}
-
-// =============================================
-// MAPEAMENTO DE EDIFÍCIOS
-// =============================================
-const EDIFICIOS_POR_NIVEL = {
-  1: { edificios: [{ nome: 'Plantação De Vegetais', setor: 'agricultura' }] },
-  2: { edificios: [{ nome: 'Granja De Aves', setor: 'agricultura' }] },
-  3: { edificios: [{ nome: 'Fazenda De Vacas', setor: 'agricultura' }] },
-  4: { edificios: [{ nome: 'Criação De Ovinos', setor: 'agricultura' }] },
-  5: { edificios: [{ nome: 'Cooperativa Agrícola', setor: 'agricultura' }] },
-  6: { edificios: [{ nome: 'Centro De Comércio De Plantações', setor: 'agricultura' }] },
-}
-
-const SETOR_CONFIG = {
-  agricultura:  { label: 'Agricultura', cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50' },
-  tecnologia:   { label: 'Tecnologia',  cor1: '#A64B00', cor2: '#D45A00', cor3: '#FF6F00', cor4: '#FF8C42' },
-  industria:    { label: 'Indústria',   cor1: '#1A1A1A', cor2: '#4D4D4D', cor3: '#808080', cor4: '#B3B3B3' },
-  comercio:     { label: 'Comércio',    cor1: '#660000', cor2: '#A31919', cor3: '#E60000', cor4: '#FF4D4D' },
-  imobiliario:  { label: 'Imobiliário', cor1: '#000066', cor2: '#1A1A8C', cor3: '#3333CC', cor4: '#6666FF' },
-  energia:      { label: 'Energia',     cor1: '#665200', cor2: '#A37F19', cor3: '#E6B800', cor4: '#FFD966' },
-}
-
-// =============================================
-// FUNÇÕES AUXILIARES
-// =============================================
-const getNivelPorMoedas = (moedas) => {
-  if (moedas <= 5) return 1
-  if (moedas <= 10) return 2
-  if (moedas <= 20) return 3
-  if (moedas <= 30) return 4
-  if (moedas <= 50) return 5
-  return 6
-}
-
-const escolherEdificioPorNivel = (nivel) => {
-  const config = EDIFICIOS_POR_NIVEL[nivel] || EDIFICIOS_POR_NIVEL[1]
-  const edificios = config.edificios || EDIFICIOS_POR_NIVEL[1].edificios
-  return edificios[Math.floor(Math.random() * edificios.length)]
-}
-
-const edificioEhComposto = (() => {
-  const cache = new Map()
-  return (nomeEdificio) => {
-    if (cache.has(nomeEdificio)) return cache.get(nomeEdificio)
-    const modeloId = EDIFICIO_PARA_MODELO[nomeEdificio]
-    const result = modeloId ? MODELOS[modeloId]?.tipo === 'composto' : false
-    cache.set(nomeEdificio, result)
-    return result
-  }
-})()
-
-const edificioEhCluster = (() => {
-  const cache = new Map()
-  return (nomeEdificio) => {
-    if (cache.has(nomeEdificio)) return cache.get(nomeEdificio)
-    const modeloId = EDIFICIO_PARA_MODELO[nomeEdificio]
-    const result = modeloId ? MODELOS[modeloId]?.tamanho === 7 : false
-    cache.set(nomeEdificio, result)
-    return result
-  }
-})()
-
-const HEX_DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]]
-const vizinhosDeHex = (q, r) => HEX_DIRECTIONS.map(([dq, dr]) => `${q + dq},${r + dr}`)
 
 const hexToWorld = (hex, size) => ({
   x: size * 1.73 * (hex.q + hex.r / 2),
@@ -157,49 +19,32 @@ const hexToWorld = (hex, size) => ({
 })
 
 // =============================================
-// HELPERS: coleta DIÁRIA de moedas
+// SETOR CONFIG
 // =============================================
-function getHoje() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
-
-function jaColetouHoje(edificioId) {
-  if (typeof window === 'undefined') return false
-  try {
-    const dataSalva = window.localStorage.getItem(`${STORAGE_COINS_DATE}${edificioId}`)
-    return dataSalva === getHoje()
-  } catch { return false }
-}
-
-function marcarColetadoHoje(edificioId) {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(`${STORAGE_COINS_DATE}${edificioId}`, getHoje())
-    window.localStorage.setItem(`${STORAGE_PREFIX_COINS}${edificioId}`, '1')
-  } catch {}
+const SETOR_CONFIG = {
+  agricultura:  { label: 'Agricultura', cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50' },
+  tecnologia:   { label: 'Tecnologia',  cor1: '#A64B00', cor2: '#D45A00', cor3: '#FF6F00', cor4: '#FF8C42' },
+  industria:    { label: 'Indústria',   cor1: '#1A1A1A', cor2: '#4D4D4D', cor3: '#808080', cor4: '#B3B3B3' },
+  comercio:     { label: 'Comércio',    cor1: '#660000', cor2: '#A31919', cor3: '#E60000', cor4: '#FF4D4D' },
+  imobiliario:  { label: 'Imobiliário', cor1: '#000066', cor2: '#1A1A8C', cor3: '#3333CC', cor4: '#6666FF' },
+  energia:      { label: 'Energia',     cor1: '#665200', cor2: '#A37F19', cor3: '#E6B800', cor4: '#FFD966' },
+  outros:       { label: 'Outros',      cor1: '#111111', cor2: '#333333', cor3: '#555555', cor4: '#888888' },
 }
 
 // =============================================
 // BADGE DE MOEDAS (coleta diária)
 // =============================================
-const CoinsBadge = React.memo(({ edificioId, yOffset = 1.05, onColetar }) => {
-  const [coletado, setColetado] = useState(() => jaColetouHoje(edificioId))
+const CoinsBadge = React.memo(({ edificioId, jaColetou, onColetar, yOffset = 1.05 }) => {
+  const [coletado, setColetado] = useState(() => !!jaColetou?.(edificioId))
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (coletado && !jaColetouHoje(edificioId)) {
-        setColetado(false)
-      }
-    }, 60_000)
-    return () => clearInterval(interval)
-  }, [edificioId, coletado])
+    setColetado(!!jaColetou?.(edificioId))
+  }, [edificioId, jaColetou])
 
   if (coletado) return null
 
   const handleClick = (e) => {
     e.stopPropagation()
-    marcarColetadoHoje(edificioId)
     setColetado(true)
     onColetar?.(edificioId)
   }
@@ -410,6 +255,7 @@ const HexTile = React.memo(({
   selected,
   moveMode,
   config = {},
+  jaColetou,
   onColetarMoeda,
   onHover,
   isHovered,
@@ -481,6 +327,7 @@ const HexTile = React.memo(({
           />
           <CoinsBadge
             edificioId={building.id}
+            jaColetou={jaColetou}
             yOffset={1.05}
             onColetar={(id) => onColetarMoeda?.(id)}
           />
@@ -508,7 +355,8 @@ const HexTile = React.memo(({
 // HEX TILE CLUSTER SATELITE
 // =============================================
 const HexTileClusterSatelite = React.memo(({
-  hex, corTopo, modeloId, corFallback, config = {}, edificioDono, onColetarMoeda, scaleIn = 1,
+  hex, corTopo, modeloId, corFallback, config = {}, edificioDono,
+  jaColetou, onColetarMoeda, scaleIn = 1,
 }) => {
   const { x, z } = hexToWorld(hex, HEX_SIZE)
   return (
@@ -526,6 +374,7 @@ const HexTileClusterSatelite = React.memo(({
       {edificioDono && (
         <CoinsBadge
           edificioId={edificioDono.id}
+          jaColetou={jaColetou}
           yOffset={1.05}
           onColetar={(id) => onColetarMoeda?.(id)}
         />
@@ -535,7 +384,7 @@ const HexTileClusterSatelite = React.memo(({
 })
 
 // =============================================
-// SEDE — 🔥 KEY força remount quando o porte muda
+// SEDE
 // =============================================
 const Sede = React.memo(({ nomeEmpresa, porte, config = {} }) => {
   const sedeConfig = useMemo(() => resolverModeloSede(porte), [porte])
@@ -615,271 +464,6 @@ const ZoomController = ({ controlsRef, zoomStep = 0.15, onReady }) => {
 }
 
 // =============================================
-// 🔥 PAINEL DE PROGRESSO (versão completa original)
-// =============================================
-const PainelProgresso = ({
-  nivelExpandido, nivelAtual, porte, raio, atividadesMes, proximo, ultimoNivel,
-}) => {
-  const falta = proximo ? Math.max(0, proximo.atvMin - atividadesMes) : 0
-  const percentual = proximo
-    ? Math.min(100, (atividadesMes / proximo.atvMin) * 100)
-    : 100
-
-  const raioAtual = TABELA_NIVEIS[nivelExpandido - 1]?.raio ?? raio
-  const raioProximo = proximo ? TABELA_NIVEIS[proximo.nivel - 1]?.raio ?? raio : raio
-  const terrenosNovos = proximo ? hexDiff(raioAtual, raioProximo) : 0
-
-  return (
-    <div style={{
-      position: 'absolute',
-      bottom: 10,
-      left: 10,
-      zIndex: 60,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: 8,
-      fontFamily: "'Rajdhani','Segoe UI',sans-serif",
-      pointerEvents: 'none',
-      minWidth: 240,
-      maxWidth: 280,
-    }}>
-      {proximo && !ultimoNivel && (
-        <div style={{
-          background: 'rgba(10,6,24,0.85)',
-          border: '1px solid rgba(242,116,5,0.4)',
-          borderRadius: 10,
-          padding: '8px 12px',
-          color: '#fff',
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: '0.05em',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#FFB060', fontSize: 10 }}>PRÓX. NV {proximo.nivel}</span>
-            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
-              {atividadesMes} / {proximo.atvMin}
-            </span>
-          </div>
-          <div style={{
-            height: 6,
-            borderRadius: 3,
-            background: 'rgba(255,255,255,0.1)',
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              width: `${percentual}%`,
-              height: '100%',
-              background: 'linear-gradient(90deg, #F27405, #FFB060)',
-              transition: 'width 0.4s ease',
-            }} />
-          </div>
-          <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>
-            faltam <b style={{ color: '#FFB060' }}>{falta}</b> atividade{falta !== 1 ? 's' : ''}
-          </div>
-
-          {terrenosNovos > 0 && (
-            <div style={{
-              marginTop: 4,
-              paddingTop: 6,
-              borderTop: '1px dashed rgba(255,255,255,0.12)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              fontSize: 10,
-            }}>
-              <span style={{ color: 'rgba(255,255,255,0.5)' }}>🗺️ Terrenos no nv {proximo.nivel}</span>
-              <span style={{ color: '#78DC8C', fontWeight: 800 }}>+{terrenosNovos}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {ultimoNivel && (
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(242,116,5,0.3), rgba(139,61,0,0.3))',
-          border: '1.5px solid #F27405',
-          borderRadius: 10,
-          padding: '6px 12px',
-          color: '#FFB060',
-          fontSize: 11,
-          fontWeight: 800,
-          letterSpacing: '0.08em',
-          textAlign: 'center',
-          textTransform: 'uppercase',
-        }}>
-          ★ Nível máximo atingido ★
-        </div>
-      )}
-    </div>
-  )
-}
-
-// =============================================
-// 🔥 BOTÃO "EXPANDIR MUNDO" (topo central — versão completa)
-// =============================================
-const BotaoExpandirMundo = ({ nivelAtual, nivelExpandido, onExpandir, expandindo }) => {
-  const nivelProx = TABELA_NIVEIS[nivelAtual - 1]
-  if (!nivelProx) return null
-
-  const raioAtual = TABELA_NIVEIS[nivelExpandido - 1]?.raio ?? nivelProx.raio
-  const raioProximo = nivelProx.raio
-  const terrenosNovos = hexDiff(raioAtual, raioProximo)
-
-  return (
-    <div style={{
-      position: 'absolute',
-      top: 16,
-      left: '50%',
-      transform: 'translateX(-50%)',
-      zIndex: 70,
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 10,
-      fontFamily: "'Rajdhani','Segoe UI',sans-serif",
-      pointerEvents: 'auto',
-    }}>
-      {/* Banner de nível alcançado */}
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(255,215,0,0.95), rgba(242,116,5,0.95))',
-        border: '2px solid #FFD966',
-        boxShadow: '0 0 30px rgba(255,215,0,0.7), 0 4px 16px rgba(0,0,0,0.6)',
-        borderRadius: 14,
-        padding: '10px 20px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        animation: 'pulse 1.5s ease-in-out infinite',
-        color: '#3D2800',
-        fontSize: 13,
-        fontWeight: 900,
-        letterSpacing: '.06em',
-        textTransform: 'uppercase',
-        textShadow: '0 1px 2px rgba(255,255,255,0.4)',
-      }}>
-        <Sparkles size={18} strokeWidth={3} />
-        <span>Nível {nivelAtual} alcançado!</span>
-      </div>
-
-      {/* Preview do próximo porte + ganho de terrenos */}
-      <div style={{
-        background: 'rgba(10,6,24,0.92)',
-        border: '1.5px solid rgba(199,159,255,0.5)',
-        boxShadow: '0 0 20px rgba(100,17,217,0.5)',
-        borderRadius: 12,
-        padding: '10px 16px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 14,
-        color: '#fff',
-      }}>
-        <div style={{
-          width: 48, height: 48, borderRadius: 10,
-          background: 'linear-gradient(135deg, #4C14A9, #6411D9)',
-          border: '2px solid rgba(199,159,255,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 0 16px rgba(100,17,217,0.7)',
-          flexShrink: 0,
-        }}>
-          <img
-            src={`/imagens/sede_${nivelAtual}.png`}
-            alt={nivelProx.porte}
-            style={{
-              width: '78%', height: '78%',
-              objectFit: 'contain',
-              filter: 'brightness(0) invert(1) drop-shadow(0 0 6px #C79FFF)',
-            }}
-            onError={(e) => { e.target.style.display = 'none' }}
-          />
-          <Building2 size={22} strokeWidth={2.5} color="#C79FFF" style={{ position: 'absolute' }} />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span style={{
-            fontSize: 10,
-            color: 'rgba(199,159,255,0.75)',
-            fontWeight: 800,
-            letterSpacing: '.1em',
-            textTransform: 'uppercase',
-          }}>
-            Próxima Sede
-          </span>
-          <span style={{ fontSize: 14, fontWeight: 800, letterSpacing: '.04em' }}>
-            {nivelProx.porte}
-          </span>
-          {terrenosNovos > 0 && (
-            <span style={{
-              fontSize: 10,
-              color: '#78DC8C',
-              fontWeight: 800,
-              letterSpacing: '.05em',
-            }}>
-              🗺️ +{terrenosNovos} terrenos ({hexCountPorRaio(raioProximo)} no total)
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Botão principal de expandir */}
-      <button
-        onClick={onExpandir}
-        disabled={expandindo}
-        style={{
-          pointerEvents: 'auto',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 8,
-          padding: '12px 26px',
-          borderRadius: 12,
-          border: '2px solid #FFD966',
-          background: expandindo
-            ? 'linear-gradient(135deg, #555, #333)'
-            : 'linear-gradient(135deg, #F27405, #8B3D00)',
-          boxShadow: expandindo
-            ? '0 0 10px rgba(0,0,0,0.4)'
-            : '0 0 24px rgba(242,116,5,0.8), 0 4px 12px rgba(0,0,0,0.5)',
-          color: '#fff',
-          fontFamily: "'Rajdhani','Segoe UI',sans-serif",
-          fontWeight: 900,
-          fontSize: 14,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          cursor: expandindo ? 'wait' : 'pointer',
-          userSelect: 'none',
-          transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-          animation: expandindo ? 'none' : 'bounce 1.2s ease-in-out infinite',
-        }}
-        onMouseEnter={(e) => {
-          if (!expandindo) e.currentTarget.style.transform = 'scale(1.05)'
-        }}
-        onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)' }}
-      >
-        <MapIcon size={18} strokeWidth={3} />
-        {expandindo ? 'Expandindo...' : 'Expandir Mundo'}
-        {!expandindo && <ArrowUpRight size={18} strokeWidth={3} />}
-      </button>
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.04); opacity: 0.9; }
-        }
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-3px); }
-        }
-      `}</style>
-    </div>
-  )
-}
-
-// =============================================
 // MOVE BANNER
 // =============================================
 const MoveBanner = ({ onCancel }) => (
@@ -932,7 +516,7 @@ const MoveBanner = ({ onCancel }) => (
 // =============================================
 const PainelSelecionado = ({ building, isFullscreen, onMover, onFechar }) => {
   if (!building) return null
-  const cfg = SETOR_CONFIG[building.setor] || SETOR_CONFIG.agricultura
+  const cfg = SETOR_CONFIG[building.setor] || SETOR_CONFIG.outros
 
   return (
     <div style={{
@@ -1056,436 +640,134 @@ const PainelSelecionado = ({ building, isFullscreen, onMover, onFechar }) => {
 }
 
 // =============================================
-// TIPOS PERMITIDOS
+// 🔥 WRAPPER: hex que anima scale-in durante expansão
 // =============================================
-const TIPOS_PERMITIDOS = ['corrida', 'musculacao', 'caminhada']
+const AnimatedHex = React.memo(({ expandindo, ehNovo, children }) => {
+  const ref = useRef()
+  const startTimeRef = useRef(null)
+  const DURACAO = 500
 
-// =============================================
-// COMPONENTE PRINCIPAL
-// =============================================
-export default function MapWorldActivities({ atividades = [], onSelecionarAtividade } = {}) {
-  const { config: graphicsConfig } = useGraphicsConfig()
+  useFrame(({ clock }) => {
+    if (!ref.current) return
 
-  const nomeEmpresa = 'Minha Cidade'
+    if (!expandindo || !ehNovo) {
+      ref.current.scale.setScalar(1)
+      return
+    }
 
-  const [selectedKey, setSelectedKey] = useState(null)
-  const [dayProgress, setDayProgress] = useState(0)
-  const [moveMode, setMoveMode] = useState(false)
-  const [hoveredKey, setHoveredKey] = useState(null)
+    if (startTimeRef.current == null) {
+      startTimeRef.current = clock.elapsedTime
+    }
 
-  const [nivelExpandido, setNivelExpandido] = useState(() => lerNivelExpandido())
-  const [expandindo, setExpandindo] = useState(false)
-  const [nivelAnimando, setNivelAnimando] = useState(null)
+    const elapsed = (clock.elapsedTime - startTimeRef.current) * 1000
+    const t = Math.min(1, elapsed / DURACAO)
 
-  const [isFullscreen, setIsFullscreen] = useState(() => {
-    if (typeof document === 'undefined') return false
-    return !!document.fullscreenElement
+    const c1 = 1.70158
+    const c3 = c1 + 1
+    const eased = 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
+
+    ref.current.scale.setScalar(eased)
   })
 
+  useEffect(() => {
+    if (!expandindo) startTimeRef.current = null
+  }, [expandindo])
+
+  return <group ref={ref}>{children}</group>
+})
+
+// ═════════════════════════════════════════════════════════════
+//  🔥 COMPONENTE PÚBLICO — SÓ RENDERIZA O QUE RECEBE
+// ═════════════════════════════════════════════════════════════
+export default function MapWorldActivities({
+  // ─── Dados (vem do pai) ───
+  nomeEmpresa = 'Minha Cidade',
+  porte,
+  raioMapa,
+  dayProgress = 0,
+
+  posicoes = {},
+  satelites = {},
+  tilesToRender = [],
+  hexMap,
+  edificioPorId,
+  chavesAntigas = null,
+  expandindo = false,
+
+  // ─── Estado de interação ───
+  selectedKey,
+  moveMode,
+  hoveredKey,
+  isFullscreen = false,
+
+  // ─── Handlers ───
+  onHexClick,
+  onHover,
+  onMover,
+  onCancelarMove,
+  onFecharPainel,
+  onColetarMoeda,
+  jaColetou,
+  onMapReady,
+}) {
+  const { config: graphicsConfig } = useGraphicsConfig()
   const controlsRef = useRef()
   const zoomApiRef = useRef({ zoomIn: () => {}, zoomOut: () => {} })
 
-  useEffect(() => {
-    const handleFsChange = () => {
-      const fs = !!document.fullscreenElement
-      setIsFullscreen(fs)
-      if (!fs) {
-        setMoveMode(false)
-        setSelectedKey(null)
-        setHoveredKey(null)
-      }
-    }
-    document.addEventListener('fullscreenchange', handleFsChange)
-    return () => document.removeEventListener('fullscreenchange', handleFsChange)
-  }, [])
-
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen?.().catch(() => {})
-    } else {
-      document.exitFullscreen?.().catch(() => {})
-    }
-  }, [])
-
-  const handleZoomIn  = useCallback(() => zoomApiRef.current.zoomIn(), [])
-  const handleZoomOut = useCallback(() => zoomApiRef.current.zoomOut(), [])
-
-  // ── Contador de atividades ──
-  const atividadesMes = useMemo(() => {
-    return atividades.filter(a => TIPOS_PERMITIDOS.includes(a.tipo)).length
-  }, [atividades])
-
-  // ── Nível atual + próximo ──
-  const nivelAtual = useMemo(() => calcularNivel(atividadesMes), [atividadesMes])
-  const proximo = useMemo(() => proximoNivel(atividadesMes), [atividadesMes])
-
-  const ultimoNivel = !proximo
-
-  // 🔥 NÍVEL EXPANDIDO define o que o mapa mostra
-  const nivelParaMapa = TABELA_NIVEIS[nivelExpandido - 1] || TABELA_NIVEIS[0]
-  const porte = nivelParaMapa.porte
-  const raioMapa = nivelParaMapa.raio
-
-  // 🔥 Há nível novo para expandir?
-  const precisaExpandir = nivelAtual.nivel > nivelExpandido
-
-  // 🔥 Terrenos ganhos ao expandir
-  const terrenosNovos = useMemo(() => {
-    if (!precisaExpandir) return 0
-    const nivelAlvo = TABELA_NIVEIS[nivelAtual.nivel - 1]
-    return hexDiff(raioMapa, nivelAlvo.raio)
-  }, [precisaExpandir, nivelAtual.nivel, raioMapa])
-
-  // ── Edifícios ativos ──
-  const edificiosAtivos = useMemo(() => {
-    const atividadesFiltradas = atividades.filter(a =>
-      TIPOS_PERMITIDOS.includes(a.tipo)
-    )
-
-    return atividadesFiltradas.map((atividade, idx) => {
-      const moedas = calcularMoedas(atividade)
-      const nivelMoeda = getNivelPorMoedas(moedas)
-      const edificio = escolherEdificioPorNivel(nivelMoeda)
-
-      return {
-        id: atividade.id ?? `atividade-${idx}`,
-        nome: edificio.nome,
-        setor: edificio.setor,
-        atividade,
-        moedas,
-        nivel: nivelMoeda,
-        ehCluster: edificioEhCluster(edificio.nome),
-        ehComposto: edificioEhComposto(edificio.nome),
-      }
-    })
-  }, [atividades])
-
-  // ── Hex Grid ──
-  const hexGrid = useMemo(() => {
-    const Tile = defineHex({ dimensions: HEX_SIZE, orientation: 'pointy' })
-    return Array.from(new Grid(Tile, spiral({ center: [0, 0], radius: raioMapa })))
-  }, [raioMapa])
-
-  // 🔥 Raio do nível ANTERIOR (durante animação)
-  const raioAnterior = useMemo(() => {
-    if (!expandindo) return null
-    const nivelAnt = TABELA_NIVEIS[(nivelExpandido - 1) - 1] || TABELA_NIVEIS[0]
-    return nivelAnt.raio
-  }, [expandindo, nivelExpandido])
-
-  // 🔥 Chaves do grid ANTIGO
-  const chavesAntigas = useMemo(() => {
-    if (raioAnterior == null) return null
-    const Tile = defineHex({ dimensions: HEX_SIZE, orientation: 'pointy' })
-    const antigos = Array.from(new Grid(Tile, spiral({ center: [0, 0], radius: raioAnterior })))
-    const set = new Set()
-    antigos.forEach(h => set.add(`${h.q},${h.r}`))
-    return set
-  }, [raioAnterior])
-
-  const hexMap = useMemo(() => {
-    const map = new Map()
-    hexGrid.forEach(h => map.set(`${h.q},${h.r}`, h))
-    return map
-  }, [hexGrid])
-
-  const edificioPorId = useMemo(() => {
-    const map = new Map()
-    edificiosAtivos.forEach(e => map.set(e.id, e))
-    return map
-  }, [edificiosAtivos])
-
-  // ── Posicionamento ──
-  const [posicoes, setPosicoes] = useState({})
-
-  useEffect(() => {
-    const gridKeys = new Set(hexGrid.map(h => `${h.q},${h.r}`))
-
-    const posOcupadas = new Set(['0,0'])
-    const novasPosicoes = {}
-
-    const idsAtivos = new Set(edificiosAtivos.map(e => e.id))
-    Object.entries(posicoes).forEach(([key, id]) => {
-      if (key === '0,0') return
-
-      if (idsAtivos.has(id)) {
-        novasPosicoes[key] = id
-        posOcupadas.add(key)
-        const ed = edificioPorId.get(id)
-        if (ed?.ehCluster) {
-          const [q, r] = key.split(',').map(Number)
-          vizinhosDeHex(q, r).forEach(vk => {
-            if (vk !== '0,0') posOcupadas.add(vk)
-          })
-        }
-      }
-    })
-
-    const keys = hexGrid.map(h => `${h.q},${h.r}`)
-      .sort((a, b) => {
-        const [aq, ar] = a.split(',').map(Number)
-        const [bq, br] = b.split(',').map(Number)
-        return (aq*aq + ar*ar) - (bq*bq + br*br)
-      })
-
-    const proximoLivre = (predicado = null) => {
-      for (const k of keys) {
-        if (k === '0,0') continue
-        if (posOcupadas.has(k)) continue
-        if (predicado && !predicado(k)) continue
-        return k
-      }
-      return null
-    }
-
-    const idsJaAlocados = new Set(Object.values(novasPosicoes))
-    const clusters = edificiosAtivos.filter(ed => ed.ehCluster && !idsJaAlocados.has(ed.id))
-    const simples = edificiosAtivos.filter(ed => !ed.ehCluster && !idsJaAlocados.has(ed.id))
-
-    clusters.forEach(ed => {
-      const central = proximoLivre(k => {
-        const [cq, cr] = k.split(',').map(Number)
-        return vizinhosDeHex(cq, cr).every(vk => {
-          if (vk === '0,0') return false
-          return !posOcupadas.has(vk) && gridKeys.has(vk)
-        })
-      })
-      if (central) {
-        const [cq, cr] = central.split(',').map(Number)
-        novasPosicoes[central] = ed.id
-        posOcupadas.add(central)
-        vizinhosDeHex(cq, cr).forEach(vk => {
-          if (vk !== '0,0') posOcupadas.add(vk)
-        })
-      }
-    })
-
-    simples.forEach(ed => {
-      const pos = proximoLivre()
-      if (pos) {
-        novasPosicoes[pos] = ed.id
-        posOcupadas.add(pos)
-      }
-    })
-
-    setPosicoes(novasPosicoes)
-  }, [edificiosAtivos, hexGrid, edificioPorId])
-
-  // ── Satélites ──
-  const satelites = useMemo(() => {
-    const mapa = {}
-    Object.entries(posicoes).forEach(([key, id]) => {
-      const ed = edificioPorId.get(id)
-      if (!ed?.ehCluster) return
-
-      const cfg = SETOR_CONFIG[ed.setor]
-      const cor = cfg?.cor3 || '#5a9e44'
-      const corFall = cfg?.cor4 || '#888888'
-      const modeloId = EDIFICIO_PARA_MODELO[ed.nome]
-      const modeloDef = modeloId ? MODELOS[modeloId] : null
-      const defSats = modeloDef?.satelites || []
-
-      const [q, r] = key.split(',').map(Number)
-      vizinhosDeHex(q, r).forEach((vk, i) => {
-        if (vk === '0,0') return
-        if (!posicoes[vk]) {
-          mapa[vk] = {
-            corTopo: cor,
-            corFallback: corFall,
-            modeloId: defSats[i]?.modeloId ?? null,
-            edificioDono: ed,
-          }
-        }
-      })
-    })
-    return mapa
-  }, [posicoes, edificioPorId])
-
-  const tilesToRender = useMemo(() => {
-    return hexGrid
-      .map(h => ({ hex: h, key: `${h.q},${h.r}` }))
-      .filter(({ key }) => key !== '0,0' && !satelites[key])
-  }, [hexGrid, satelites])
-
-  // 🔥 Edifício selecionado
+  // Edifício selecionado
   const selectedBuilding = useMemo(() => {
     if (!selectedKey) return null
     const id = posicoes[selectedKey]
-    return id ? edificioPorId.get(id) || null : null
+    return id ? edificioPorId?.get(id) || null : null
   }, [selectedKey, posicoes, edificioPorId])
 
-  // 🔥 Destino válido
-  const destinoEhValido = useCallback((destKey) => {
-    if (!selectedKey) return false
-    if (destKey === '0,0') return false
-    if (destKey === selectedKey) return false
-    if (posicoes[destKey]) return false
-    if (satelites[destKey]) return false
+  const canvasConfig = useMemo(() => ({
+    shadows: graphicsConfig.shadows,
+    antialias: graphicsConfig.antialias,
+  }), [graphicsConfig])
 
-    const edSendo = edificioPorId.get(posicoes[selectedKey])
-    if (!edSendo) return false
-
-    if (edSendo.ehCluster) {
-      const gridKeys = new Set(hexGrid.map(h => `${h.q},${h.r}`))
-      const ocupadasSemEle = new Set(['0,0'])
-
-      Object.entries(posicoes).forEach(([k, id]) => {
-        if (k === selectedKey) return
-        ocupadasSemEle.add(k)
-        const ed = edificioPorId.get(id)
-        if (ed?.ehCluster) {
-          const [q, r] = k.split(',').map(Number)
-          vizinhosDeHex(q, r).forEach(vk => ocupadasSemEle.add(vk))
-        }
-      })
-
-      Object.keys(satelites).forEach(k => {
-        if (k !== selectedKey) ocupadasSemEle.add(k)
-      })
-
-      const [dq, dr] = destKey.split(',').map(Number)
-      return vizinhosDeHex(dq, dr).every(
-        vk => !ocupadasSemEle.has(vk) && gridKeys.has(vk)
-      )
-    }
-
-    return true
-  }, [selectedKey, posicoes, satelites, edificioPorId, hexGrid])
-
-  // Mover
-  const moverEdificio = useCallback((destKey) => {
-    if (!destinoEhValido(destKey)) return false
-
-    setPosicoes(prev => {
-      const copy = { ...prev }
-      copy[destKey] = copy[selectedKey]
-      delete copy[selectedKey]
-      return copy
-    })
-
-    setSelectedKey(destKey)
-    setMoveMode(false)
-    setHoveredKey(null)
-    return true
-  }, [selectedKey, destinoEhValido])
-
-  // Click
-  const handleHexClick = useCallback((hex) => {
-    const key = `${hex.q},${hex.r}`
-
-    if (moveMode) {
-      moverEdificio(key)
-      return
-    }
-
-    const edId = posicoes[key]
-    if (!edId) {
-      setSelectedKey(null)
-      return
-    }
-    setSelectedKey(prev => (prev === key ? null : key))
-    const edificio = edificioPorId.get(edId)
-    if (edificio?.atividade) {
-      onSelecionarAtividade?.(edificio.atividade)
-    }
-  }, [moveMode, posicoes, edificioPorId, onSelecionarAtividade, moverEdificio])
-
-  const handleHover = useCallback((key, isOver) => {
-    setHoveredKey(isOver ? key : null)
-  }, [])
-
-  const ativarMoveMode = useCallback(() => {
-    if (!isFullscreen) return
-    if (!selectedKey) return
-    setMoveMode(true)
-  }, [isFullscreen, selectedKey])
-
-  const cancelarMoveMode = useCallback(() => {
-    setMoveMode(false)
-    setHoveredKey(null)
-  }, [])
-
-  const handleColetarMoeda = useCallback((edificioId) => {
-    // hook para XP/global
-  }, [])
-
-  // =============================================
-  // 🔥 EXPANDIR MUNDO
-  // =============================================
-  const handleExpandirMundo = useCallback(() => {
-    if (!precisaExpandir || expandindo) return
-
-    setExpandindo(true)
-    setNivelAnimando(nivelAtual.nivel)
-
-    const novoNivel = nivelAtual.nivel
-    setNivelExpandido(novoNivel)
-    salvarNivelExpandido(novoNivel)
-
-    setTimeout(() => {
-      setExpandindo(false)
-      setNivelAnimando(null)
-    }, 900)
-  }, [precisaExpandir, expandindo, nivelAtual.nivel])
-
-  // ── Limites de zoom ──
+  // Limites de zoom
   const tamanhoMapaMundo = HEX_SIZE * 1.73 * (raioMapa + 2.5)
   const minDistance = 4
   const maxDistance = Math.max(45, tamanhoMapaMundo * 2.2)
 
-  // ── Render ──
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden', backgroundColor: '#350973' }}>
 
-      {/* 🔥 Painel de progresso (versão completa) */}
-      <PainelProgresso
-        nivelExpandido={nivelExpandido}
-        nivelAtual={nivelAtual.nivel}
-        porte={porte}
-        raio={raioMapa}
-        atividadesMes={atividadesMes}
-        proximo={proximo}
-        ultimoNivel={ultimoNivel}
-      />
-
-      {/* 🔥 Botão de expandir mundo (topo central — versão completa) */}
-      {precisaExpandir && (
-        <BotaoExpandirMundo
-          nivelAtual={nivelAtual.nivel}
-          nivelExpandido={nivelExpandido}
-          onExpandir={handleExpandirMundo}
-          expandindo={expandindo}
-        />
-      )}
-
       {/* Painel do edifício selecionado */}
-      {selectedBuilding && !moveMode && !precisaExpandir && (
+      {selectedBuilding && !moveMode && (
         <PainelSelecionado
           building={selectedBuilding}
           isFullscreen={isFullscreen}
-          onMover={ativarMoveMode}
-          onFechar={() => setSelectedKey(null)}
+          onMover={onMover}
+          onFechar={onFecharPainel}
         />
       )}
 
-      {/* Banner de mover */}
+      {/* Banner de modo mover */}
       {moveMode && (
-        <MoveBanner onCancel={cancelarMoveMode} />
+        <MoveBanner onCancel={onCancelarMove} />
       )}
 
       <Canvas
         frameloop={moveMode || hoveredKey || expandindo ? "always" : "demand"}
-        shadows={graphicsConfig.shadows}
+        shadows={canvasConfig.shadows}
         gl={{
-          antialias: graphicsConfig.antialias,
+          antialias: canvasConfig.antialias,
           powerPreference: "high-performance",
         }}
         camera={{ position: [6, 6, 6], fov: 26 }}
         onPointerMissed={() => {
-          if (!moveMode) setSelectedKey(null)
+          if (!moveMode) onFecharPainel?.()
+        }}
+        onCreated={() => {
+          onMapReady?.()
         }}
       >
-        <ZoomController controlsRef={controlsRef} onReady={(api) => { zoomApiRef.current = api }} />
+        <ZoomController
+          controlsRef={controlsRef}
+          onReady={(api) => { zoomApiRef.current = api }}
+        />
 
         <SkyDome dayProgress={dayProgress} raioMapa={raioMapa} />
 
@@ -1505,7 +787,7 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
 
           {Object.entries(satelites).map(([key, { corTopo, modeloId, corFallback, edificioDono }]) => {
             if (key === '0,0') return null
-            const hex = hexMap.get(key)
+            const hex = hexMap?.get(key)
             if (!hex) return null
             return (
               <HexTileClusterSatelite
@@ -1516,7 +798,8 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
                 corFallback={corFallback}
                 config={graphicsConfig}
                 edificioDono={edificioDono}
-                onColetarMoeda={handleColetarMoeda}
+                jaColetou={jaColetou}
+                onColetarMoeda={onColetarMoeda}
                 scaleIn={1}
               />
             )
@@ -1524,7 +807,7 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
 
           {tilesToRender.map(({ hex, key }) => {
             const edId = posicoes[key]
-            const building = edId ? edificioPorId.get(edId) || null : null
+            const building = edId ? edificioPorId?.get(edId) || null : null
 
             const ehNovo = expandindo && chavesAntigas && !chavesAntigas.has(key)
             const scaleIn = ehNovo ? 0 : 1
@@ -1538,14 +821,15 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
                 <HexTile
                   hex={hex}
                   building={building}
-                  onClick={handleHexClick}
+                  onClick={onHexClick}
                   selected={key === selectedKey}
                   moveMode={moveMode}
                   config={graphicsConfig}
-                  onColetarMoeda={handleColetarMoeda}
-                  onHover={handleHover}
+                  jaColetou={jaColetou}
+                  onColetarMoeda={onColetarMoeda}
+                  onHover={onHover}
                   isHovered={hoveredKey === key}
-                  isBlocked={moveMode && hoveredKey === key && !destinoEhValido(key)}
+                  isBlocked={moveMode && hoveredKey === key}
                   scaleIn={scaleIn}
                 />
               </AnimatedHex>
@@ -1580,41 +864,4 @@ export default function MapWorldActivities({ atividades = [], onSelecionarAtivid
       </Canvas>
     </div>
   )
-}
-
-// =============================================
-// 🔥 WRAPPER: hex que anima scale-in durante expansão
-// =============================================
-function AnimatedHex({ expandindo, ehNovo, children }) {
-  const ref = useRef()
-  const startTimeRef = useRef(null)
-  const DURACAO = 500
-
-  useFrame(({ clock }) => {
-    if (!ref.current) return
-
-    if (!expandindo || !ehNovo) {
-      ref.current.scale.setScalar(1)
-      return
-    }
-
-    if (startTimeRef.current == null) {
-      startTimeRef.current = clock.elapsedTime
-    }
-
-    const elapsed = (clock.elapsedTime - startTimeRef.current) * 1000
-    const t = Math.min(1, elapsed / DURACAO)
-
-    const c1 = 1.70158
-    const c3 = c1 + 1
-    const eased = 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
-
-    ref.current.scale.setScalar(eased)
-  })
-
-  useEffect(() => {
-    if (!expandindo) startTimeRef.current = null
-  }, [expandindo])
-
-  return <group ref={ref}>{children}</group>
 }

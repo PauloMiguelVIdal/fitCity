@@ -248,7 +248,7 @@ export default function HomeScreen({
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/60 pointer-events-none" />
 
           {/* AUMENTEI a altura mínima de 200/220 para 280/320 */}
-          <div className="relative p-3 sm:p-4 z-10 flex flex-col justify-between min-h-[320px] sm:min-h-[320px]">
+          <div className="relative p-3 sm:p-4 z-10 flex flex-col justify-between min-h-[150px] sm:min-h-[320px]">
 
             {/* Topo: Título + Moedas */}
             <div className="flex items-start justify-between mb-2 gap-2">
