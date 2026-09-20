@@ -1,6 +1,6 @@
 // src/screens/CityScreen.jsx
 import { useState, useMemo, useCallback } from 'react'
-import { Plus, Minus, LocateFixed, Building2, ChevronRight, TrendingUp, Award } from 'lucide-react'
+import { Plus, Minus, LocateFixed, Building2, ChevronRight, TrendingUp, Award,Trophy } from 'lucide-react'
 import AtividadeVinculadaSheet from '../components/AtividadeVinculadaSheet'
 
 
@@ -12,7 +12,7 @@ import CityProgress from '../components/Citys/ProgressCity'
 // COMPONENTE PRINCIPAL
 // =============================================
 export default function CityScreen({ atividades = [] }) {
-  const [aba, setAba] = useState('patrimonio')
+  const [aba, setAba] = useState('conquista')
   const [atividadeSelecionada, setAtividadeSelecionada] = useState(null)
   const nivel = 5
   
@@ -42,10 +42,10 @@ export default function CityScreen({ atividades = [] }) {
       <div className="relative flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold">
-            {aba === 'patrimonio' ? 'Cidade Patrimônio' : 'Cidade Progresso'}
+            {aba === 'conquista' ? 'Cidade Conquista' : 'Cidade Progresso'}
           </h1>
           <p className="text-xs text-white/40 mt-0.5">
-            {aba === 'patrimonio' 
+            {aba === 'conquista' 
               ? 'Sua cidade construída com suas cartas' 
               : 'Sua cidade em evolução constante'}
           </p>
@@ -58,7 +58,7 @@ export default function CityScreen({ atividades = [] }) {
       {/* Abas de navegação */}
       <div className="relative flex bg-white/5 backdrop-blur-xl border border-white/10 rounded-full p-1 shadow-inner">
         {[
-          { id: 'patrimonio', label: 'Patrimônio', icon: Award },
+          { id: 'conquista', label: 'Conquista', icon: Trophy },
           { id: 'progresso', label: 'Progresso', icon: TrendingUp }
         ].map(({ id, label, icon: Icon }) => (
           <button
@@ -78,7 +78,7 @@ export default function CityScreen({ atividades = [] }) {
 
       {/* Conteúdo da aba selecionada */}
       <div className="flex-1">
-        {aba === 'patrimonio' ? (
+        {aba === 'conquista' ? (
           <CityConquers 
             atividades={atividades}
             dadosCidade={dadosCidade}

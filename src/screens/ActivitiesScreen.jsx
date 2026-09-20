@@ -1,5 +1,5 @@
 // src/screens/ActivitiesScreen.jsx
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   MapPin, Clock, Coins, Plus, Flame, Calendar,
   TrendingUp, Footprints, Dumbbell, Trophy, Award, Zap,
@@ -18,11 +18,13 @@ import { MODELOS, EDIFICIO_PARA_MODELO } from '../components/BuildingModels'
 const META_DIARIA_KCAL = 600
 const META_SEMANAL_ATIVIDADES = 5
 const HEX_SIZE = 0.6
+const RECOMPENSA_META_SEMANAL = 100
+const STORAGE_KEY_META_SEMANAL = 'fitcity:meta-semanal-coletada'
 
 // =============================================
 // HELPERS
 // =============================================
-const HEX_DIRECTIONS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]]
+const HEX_DIRECTIONS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]]
 const vizinhosDeHex = (q, r) => HEX_DIRECTIONS.map(([dq, dr]) => `${q + dq},${r + dr}`)
 
 const getNivelPorMoedas = (moedas) => {
@@ -71,16 +73,16 @@ const edificioEhComposto = (() => {
 })()
 
 const TABELA_NIVEIS = [
-  { nivel: 1,  porte: 'Micro Empresa',             raio: 3, atvMin: 1  },
-  { nivel: 2,  porte: 'Sociedade Limitada',        raio: 3, atvMin: 3  },
-  { nivel: 3,  porte: 'Empresa Regional',          raio: 3, atvMin: 7  },
-  { nivel: 4,  porte: 'Companhia Local',           raio: 4, atvMin: 12 },
-  { nivel: 5,  porte: 'Empresa Estadual',          raio: 5, atvMin: 16 },
-  { nivel: 6,  porte: 'Companhia Nacional',        raio: 6, atvMin: 21 },
-  { nivel: 7,  porte: 'Corporação Multissetorial', raio: 6, atvMin: 27 },
-  { nivel: 8,  porte: 'Grupo Empresarial',         raio: 7, atvMin: 34 },
-  { nivel: 9,  porte: 'Conglomerado Global',       raio: 7, atvMin: 42 },
-  { nivel: 10, porte: 'Mega Holding',              raio: 8, atvMin: 50 },
+  { nivel: 1, porte: 'Micro Empresa', raio: 3, atvMin: 1 },
+  { nivel: 2, porte: 'Sociedade Limitada', raio: 3, atvMin: 3 },
+  { nivel: 3, porte: 'Empresa Regional', raio: 3, atvMin: 7 },
+  { nivel: 4, porte: 'Companhia Local', raio: 4, atvMin: 12 },
+  { nivel: 5, porte: 'Empresa Estadual', raio: 5, atvMin: 16 },
+  { nivel: 6, porte: 'Companhia Nacional', raio: 6, atvMin: 21 },
+  { nivel: 7, porte: 'Corporação Multissetorial', raio: 6, atvMin: 27 },
+  { nivel: 8, porte: 'Grupo Empresarial', raio: 7, atvMin: 34 },
+  { nivel: 9, porte: 'Conglomerado Global', raio: 7, atvMin: 42 },
+  { nivel: 10, porte: 'Mega Holding', raio: 8, atvMin: 50 },
 ]
 
 function calcularNivel(atividadesMes) {
@@ -93,13 +95,23 @@ function calcularNivel(atividadesMes) {
 }
 
 const MODALIDADE_CORES = {
-  corrida:    { cor: '#F27405', corBg1: '#F27405', corBg2: '#8B3D00' },
+  corrida: { cor: '#F27405', corBg1: '#F27405', corBg2: '#8B3D00' },
   musculacao: { cor: '#6411D9', corBg1: '#6411D9', corBg2: '#331B8C' },
-  caminhada:  { cor: '#8F5ADA', corBg1: '#8F5ADA', corBg2: '#6411D9' },
+  caminhada: { cor: '#8F5ADA', corBg1: '#8F5ADA', corBg2: '#6411D9' },
+}
+
+// Helper: chave semanal (ex: "2026-W38")
+function getSemanaAtualKey() {
+  const d = new Date()
+  const ano = d.getFullYear()
+  const start = new Date(ano, 0, 1)
+  const diff = Math.floor((d - start) / (24 * 60 * 60 * 1000))
+  const semana = Math.ceil((diff + start.getDay() + 1) / 7)
+  return `${ano}-W${semana}`
 }
 
 // =============================================
-// MINI MAPA DO CARD "SUA CIDADE"
+// MINI MAPA DA CIDADE
 // =============================================
 function MiniMapaCidade({ atividades }) {
   const atividadesMes = atividades.length
@@ -149,7 +161,7 @@ function MiniMapaCidade({ atividades }) {
     const keys = hexGrid.map(h => `${h.q},${h.r}`).sort((a, b) => {
       const [aq, ar] = a.split(',').map(Number)
       const [bq, br] = b.split(',').map(Number)
-      return (aq*aq + ar*ar) - (bq*bq + br*br)
+      return (aq * aq + ar * ar) - (bq * bq + br * br)
     })
 
     const proximoLivre = (pred = null) => {
@@ -211,7 +223,7 @@ function MiniMapaCidade({ atividades }) {
     [hexGrid, satelites]
   )
 
-  const noop = () => {}
+  const noop = () => { }
   const jaColetou = () => true
 
   return (
@@ -244,124 +256,7 @@ function MiniMapaCidade({ atividades }) {
 }
 
 // =============================================
-// GRÁFICO DE LINHA ACUMULATIVA (SEMANAL)
-// =============================================
-function GraficoLinhaAcumulativaSemanal({ pontos = [], cor = '#F27405' }) {
-  const max = Math.max(...pontos.map(p => p.valor), 1)
-  const w = 100
-  const h = 40
-  const padTopo = 10
-  const stepX = w / Math.max(pontos.length - 1, 1)
-
-  const path = pontos.map((p, i) => {
-    const x = i * stepX
-    const y = h - (p.valor / max) * h
-    return `${i === 0 ? 'M' : 'L'}${x},${y}`
-  }).join(' ')
-
-  const areaPath = `${path} L${w},${h} L0,${h} Z`
-
-  return (
-    <div className="mt-2">
-      <svg viewBox={`0 -${padTopo} ${w} ${h + 6 + padTopo}`} className="w-full h-20 overflow-visible">
-        <defs>
-          <linearGradient id={`gradAcum-${cor.replace('#','')}`} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={cor} stopOpacity="0.4" />
-            <stop offset="100%" stopColor={cor} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
-        <path d={areaPath} fill={`url(#gradAcum-${cor.replace('#','')})`} />
-        <path d={path} fill="none" stroke={cor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-
-        {pontos.map((p, i) => {
-          const x = i * stepX
-          const y = h - (p.valor / max) * h
-          return (
-            <g key={i}>
-              <text
-                x={x}
-                y={y - 4}
-                textAnchor="middle"
-                fontSize="3.5"
-                fontWeight="700"
-                fill="rgba(255,255,255,0.55)"
-              >
-                {p.label}
-              </text>
-
-              <circle cx={x} cy={y} r="2.5" fill="#1a0b2e" stroke={cor} strokeWidth="1.5" />
-
-              <text
-                x={x}
-                y={y + 1}
-                textAnchor="middle"
-                fontSize="2.4"
-                fontWeight="900"
-                fill="#ffffff"
-              >
-                {p.dia}
-              </text>
-            </g>
-          )
-        })}
-      </svg>
-
-      <div className="flex justify-between mt-1">
-        {pontos.map((p, i) => (
-          <span key={i} className="text-[8px] text-white/40 font-medium">
-            {p.dia}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// =============================================
-// GRÁFICO DE LINHA ACUMULATIVA (GENÉRICO — mensal)
-// =============================================
-function GraficoLinhaAcumulativa({ pontos = [], cor = '#F27405' }) {
-  const max = Math.max(...pontos.map(p => p.valor), 1)
-  const w = 100, h = 40
-  const stepX = w / Math.max(pontos.length - 1, 1)
-
-  const path = pontos.map((p, i) => {
-    const x = i * stepX
-    const y = h - (p.valor / max) * h
-    return `${i === 0 ? 'M' : 'L'}${x},${y}`
-  }).join(' ')
-
-  const areaPath = `${path} L${w},${h} L0,${h} Z`
-
-  return (
-    <div className="mt-2">
-      <svg viewBox={`0 0 ${w} ${h + 6}`} className="w-full h-16 overflow-visible">
-        <defs>
-          <linearGradient id={`gradAcum-${cor.replace('#','')}`} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={cor} stopOpacity="0.4" />
-            <stop offset="100%" stopColor={cor} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={areaPath} fill={`url(#gradAcum-${cor.replace('#','')})`} />
-        <path d={path} fill="none" stroke={cor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {pontos.map((p, i) => {
-          const x = i * stepX
-          const y = h - (p.valor / max) * h
-          return <circle key={i} cx={x} cy={y} r="2.5" fill="#1a0b2e" stroke={cor} strokeWidth="1.5" />
-        })}
-      </svg>
-      <div className="flex justify-between mt-1">
-        {pontos.map((p, i) => (
-          <span key={i} className="text-[8px] text-white/40 font-medium">{p.label}</span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// =============================================
-// MAPA DE CALOR (Heatmap) — Calendário real por dia da semana
+// MAPA DE CALOR (Heatmap)
 // =============================================
 function MapaDeCalor({ dados = [] }) {
   const max = Math.max(...dados.map(d => d.valor), 1)
@@ -437,16 +332,32 @@ function MapaDeCalor({ dados = [] }) {
 }
 
 // =============================================
-// BLOCO META DA SEMANA (dias da semana estilo HomeScreen)
-// Usado DENTRO do card do Resumo Semanal
+// BLOCO META DA SEMANA
 // =============================================
-function BlocoMetaSemanal({ dias = [], progressoMeta, metaSemanal, proximoEdificio }) {
+function BlocoMetaSemanal({
+  dias = [],
+  progressoMeta,
+  metaSemanal,
+  proximoEdificio,
+  metaBatida,
+  recompensaJaColetada,
+  onColetarRecompensa,
+  recompensa = RECOMPENSA_META_SEMANAL,
+}) {
+  const pctMeta = Math.min(100, (progressoMeta / metaSemanal) * 100)
+
   return (
-    <div className="relative mt-4 pt-4 border-t border-white/10">
-      {/* Header: título + recompensa */}
+    <div
+      className={`relative rounded-2xl mt-4 p-3 border overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${
+        metaBatida
+          ? 'bg-gradient-to-br from-[#F27405]/35 to-[#6411D9]/55 border-[#6411D9]/35'
+          : 'bg-[#1E0A3C]/55 border-white/10'
+      }`}
+    >
+      {/* Header */}
       <div className="flex items-center justify-between mb-3 gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-orange-500 to-orange-700 flex items-center justify-center shadow-[0_4px_14px_rgba(242,116,5,0.5)] shrink-0">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-[0_4px_14px_rgba(242,116,5,0.5)] shrink-0">
             <Trophy size={14} className="text-white" />
           </div>
           <div className="min-w-0">
@@ -457,18 +368,56 @@ function BlocoMetaSemanal({ dias = [], progressoMeta, metaSemanal, proximoEdific
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl px-2.5 py-1 flex items-center gap-1 shadow-[0_4px_15px_rgba(234,88,12,0.4)] shrink-0">
-          <Gift size={11} className="text-white" />
-          <span className="text-[10px] font-black text-white">+100</span>
-          <Coins size={10} className="text-white" />
-        </div>
+        {/* Botão de recompensa */}
+        <button
+          type="button"
+          disabled={!metaBatida || recompensaJaColetada}
+          onClick={onColetarRecompensa}
+          className={`rounded-xl px-2.5 py-1 flex items-center gap-1 shrink-0 transition-all ${
+            recompensaJaColetada
+              ? 'bg-[#6411D9] border border-[#6411D9]/40 cursor-default'
+              : metaBatida
+              ? 'bg-gradient-to-br from-[#F27405] to-[#6411D9] shadow-[0_4px_15px_rgba(242,116,5,0.55)] hover:scale-105 active:scale-95 cursor-pointer animate-pulse'
+              : 'bg-gradient-to-br from-orange-500 to-orange-600 opacity-60 cursor-not-allowed'
+          }`}
+          title={
+            recompensaJaColetada
+              ? 'Recompensa já coletada esta semana'
+              : metaBatida
+              ? `Coletar +${recompensa} moedas`
+              : `Bata ${metaSemanal} treinos para liberar`
+          }
+        >
+          {recompensaJaColetada ? (
+            <>
+              <Check size={11} className="text-white" strokeWidth={3} />
+              <span className="text-[10px] font-black text-white uppercase">
+                Coletado
+              </span>
+            </>
+          ) : (
+            <>
+              <Gift size={11} className="text-white" />
+              <span className="text-[10px] font-black text-white">
+                +{recompensa}
+              </span>
+              <Coins size={10} className="text-white" />
+            </>
+          )}
+        </button>
       </div>
 
       {/* Barra de progresso */}
-      <div className="w-full h-2 bg-purple-900/50 rounded-full mb-3 overflow-hidden">
+      <div className="w-full h-2 bg-black/50 rounded-full mb-3 overflow-hidden border border-white/10">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-fitcity-energy to-orange-500 transition-all"
-          style={{ width: `${(progressoMeta / metaSemanal) * 100}%` }}
+          className={`h-full rounded-full transition-all duration-500 ${
+            metaBatida
+              ? 
+              'bg-gradient-to-r from-[#6411D9] via-[#F27405] to-orange-600 shadow-[0_0_10px_rgba(100,17,217,0.7)]'
+              : 
+              'bg-gradient-to-r from-[#F27405] to-orange-500 shadow-[0_0_8px_rgba(242,116,5,0.5)]'
+          }`}
+          style={{ width: `${pctMeta}%` }}
         />
       </div>
 
@@ -480,7 +429,7 @@ function BlocoMetaSemanal({ dias = [], progressoMeta, metaSemanal, proximoEdific
               <div
                 className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
                   item.concluido
-                    ? 'bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-[0_4px_15px_rgba(234,88,12,0.5)]'
+                    ? 'bg-gradient-to-br from-[#F27405] to-orange-600 text-white shadow-[0_4px_15px_rgba(242,116,5,0.5)]'
                     : 'bg-purple-900/40 text-purple-300/50 border border-purple-500/20'
                 }`}
               >
@@ -500,11 +449,11 @@ function BlocoMetaSemanal({ dias = [], progressoMeta, metaSemanal, proximoEdific
             <div className="flex items-center gap-0.5">
               <Coins
                 size={9}
-                className={item.concluido ? 'text-orange-400' : 'text-purple-400/30'}
+                className={item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'}
               />
               <span
                 className={`text-[9px] font-bold ${
-                  item.concluido ? 'text-orange-400' : 'text-purple-400/30'
+                  item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'
                 }`}
               >
                 {item.concluido ? `+${item.xp}` : '-'}
@@ -514,24 +463,18 @@ function BlocoMetaSemanal({ dias = [], progressoMeta, metaSemanal, proximoEdific
         ))}
       </div>
 
-      {/* Rodapé: recompensa detalhada */}
-      {/* <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-center gap-2 text-center flex-wrap">
-        <span className="text-[9px] font-black text-white/50 uppercase tracking-wider">
-          Recompensa:
-        </span>
-        <span className="text-xs font-black text-white truncate max-w-[140px]">
-          🏭 {proximoEdificio}
-        </span>
-        <span className="text-[10px] text-orange-400">⭐⭐⭐</span>
-        <span className="text-xs font-black text-fitcity-energy">+100</span>
-        <Coins size={12} className="text-fitcity-energy" />
-      </div> */}
+      {/* Etiqueta de meta batida */}
+      {metaBatida && !recompensaJaColetada && (
+        <p className="text-[9px] font-black text-purple-200 uppercase tracking-wider mt-2 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+          ★ Meta batida — colete sua recompensa!
+        </p>
+      )}
     </div>
   )
 }
 
 // =============================================
-// CARD PEQUENO DE MODALIDADE (Musculação / Caminhada)
+// CARD PEQUENO DE MODALIDADE
 // =============================================
 function CardModalidadePequeno({ tipo, dados, corConfig }) {
   const { cor, corBg1, corBg2 } = corConfig
@@ -738,8 +681,26 @@ function CardModalidadeGrande({ tipo, dados, corConfig }) {
 // =============================================
 // COMPONENTE PRINCIPAL
 // =============================================
-export default function ActivitiesScreen({ atividades = [], onRegistrar, onSelecionarAtividade }) {
+export default function ActivitiesScreen({
+  atividades = [],
+  onRegistrar,
+  onSelecionarAtividade,
+  onColetarRecompensa,
+}) {
   const [escopo, setEscopo] = useState('semana')
+
+  // ── Recompensa semanal ──
+  const semanaKey = useMemo(() => getSemanaAtualKey(), [])
+  const [recompensaJaColetada, setRecompensaJaColetada] = useState(false)
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_META_SEMANAL)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      setRecompensaJaColetada(parsed?.semana === semanaKey)
+    } catch { /* noop */ }
+  }, [semanaKey])
 
   // ── Hoje ──
   const atividadesHoje = useMemo(
@@ -748,6 +709,7 @@ export default function ActivitiesScreen({ atividades = [], onRegistrar, onSelec
   )
   const resumoHoje = useMemo(() => resumoDoPeriodo(atividadesHoje), [atividadesHoje])
   const pctHoje = Math.min(100, (resumoHoje.calorias / META_DIARIA_KCAL) * 100)
+  const metaHojeBatida = resumoHoje.calorias >= META_DIARIA_KCAL
   const xpHoje = Math.round(resumoHoje.moedas * 1.5)
 
   // ── Semana ──
@@ -773,34 +735,7 @@ export default function ActivitiesScreen({ atividades = [], onRegistrar, onSelec
     return escolherEdificioPorNivel(Math.min(proximoNivel.nivel - 1, 6)).nome
   }, [proximoNivel])
 
-  // ── Dados Gráfico Semanal (Acumulativo + dia da semana + número do dia) ──
-  const dadosSemanaAcumulativo = useMemo(() => {
-    const labels = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
-    const hoje = new Date()
-    const diaSemana = hoje.getDay()
-    const offset = diaSemana === 0 ? 6 : diaSemana - 1
-
-    let acumulado = 0
-    return labels.map((label, i) => {
-      const diff = i - offset
-      const data = new Date()
-      data.setDate(data.getDate() + diff)
-      const dataStr = data.toDateString()
-      
-      const totalDia = atividades
-        .filter(a => new Date(a.data).toDateString() === dataStr)
-        .reduce((acc, a) => acc + (a.tempo || 0), 0)
-      
-      acumulado += totalDia
-      return {
-        label,
-        dia: data.getDate(),
-        valor: acumulado,
-      }
-    })
-  }, [atividades])
-
-  // ── Dados dos dias da semana (para o bloco Meta) ──
+  // ── Dias da semana ──
   const diasDaSemana = useMemo(() => {
     const labels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
     const nomes = ['Hoje', 'Ontem', 'Anteontem', 'Qui', 'Sex', 'Sáb', 'Dom']
@@ -829,12 +764,12 @@ export default function ActivitiesScreen({ atividades = [], onRegistrar, onSelec
     })
   }, [atividades])
 
-  // ── Dados Gráfico Mensal (Heatmap + Acumulativo) ──
+  // ── Dados Gráfico Mensal ──
   const dadosMesHeatmap = useMemo(() => {
     const agora = new Date()
     const diasNoMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate()
     const dados = []
-    
+
     for (let d = 1; d <= diasNoMes; d++) {
       const dataStr = new Date(agora.getFullYear(), agora.getMonth(), d).toDateString()
       const totalMin = atividades
@@ -844,18 +779,6 @@ export default function ActivitiesScreen({ atividades = [], onRegistrar, onSelec
     }
     return dados
   }, [atividades])
-
-  const dadosMesAcumulativo = useMemo(() => {
-    let acumulado = 0
-    const pontos = []
-    dadosMesHeatmap.forEach((d, i) => {
-      acumulado += d.valor
-      if (i % 5 === 0 || i === dadosMesHeatmap.length - 1) {
-        pontos.push({ label: `${i+1}`, valor: acumulado })
-      }
-    })
-    return pontos
-  }, [dadosMesHeatmap])
 
   // ── Desempenho por modalidade ──
   const desempenho = useMemo(() => {
@@ -900,6 +823,33 @@ export default function ActivitiesScreen({ atividades = [], onRegistrar, onSelec
   }, [atividadesSemana, atividadesMes, escopo])
 
   const progressoMeta = Math.min(atividadesSemana.length, META_SEMANAL_ATIVIDADES)
+  const metaSemanalBatida = progressoMeta >= META_SEMANAL_ATIVIDADES
+
+  const handleColetarRecompensa = () => {
+    if (!metaSemanalBatida || recompensaJaColetada) return
+
+    if (typeof onColetarRecompensa === 'function') {
+      onColetarRecompensa(RECOMPENSA_META_SEMANAL)
+    }
+
+    try {
+      const saldoRaw = localStorage.getItem('fitcity:saldo-moedas')
+      const saldoAtual = saldoRaw ? Number(saldoRaw) || 0 : 0
+      localStorage.setItem(
+        'fitcity:saldo-moedas',
+        String(saldoAtual + RECOMPENSA_META_SEMANAL)
+      )
+    } catch { /* noop */ }
+
+    try {
+      localStorage.setItem(
+        STORAGE_KEY_META_SEMANAL,
+        JSON.stringify({ semana: semanaKey, valor: RECOMPENSA_META_SEMANAL })
+      )
+    } catch { /* noop */ }
+
+    setRecompensaJaColetada(true)
+  }
 
   // ═════════════════════════════════════════════
   //  RENDER
@@ -912,87 +862,105 @@ export default function ActivitiesScreen({ atividades = [], onRegistrar, onSelec
         <h1 className="text-2xl font-black">Atividades</h1>
       </div>
 
-      {/* ═══════════════ CARD "HOJE" + "SUA CIDADE" ═══════════════ */}
+      {/* ═══════════════ CARD UNIFICADO ═══════════════ */}
       <div className="px-3">
-        <div className="grid grid-cols-2 gap-3">
-          {/* Hoje */}
-          <div className="bg-gradient-to-br from-purple-900/60 to-purple-800/40 backdrop-blur-xl border border-white/10 rounded-2xl p-3.5 shadow-[0_10px_30px_rgba(100,17,217,0.35)] flex flex-col">
-            <p className="text-xs font-bold text-white/70 mb-1">Hoje</p>
-            <div className="flex items-baseline gap-1 mb-2">
-              <span className="text-xl font-black">{resumoHoje.calorias}</span>
-              <span className="text-[11px] text-white/50">/ {META_DIARIA_KCAL} kcal</span>
-            </div>
-            <div className="relative h-5 rounded-full bg-white/10 overflow-hidden mb-3">
-              <div
-                className="h-full bg-gradient-to-r from-fitcity-energy to-orange-500 rounded-full transition-all duration-500"
-                style={{ width: `${pctHoje}%` }}
-              />
-              <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                {Math.round(pctHoje)}%
-              </span>
-            </div>
-            <div className="flex flex-col gap-1.5 mt-auto">
-              <div className="flex items-center gap-2 text-[11px]">
-                <MapPin size={12} className="text-fitcity-energy" />
-                <span className="font-semibold">{resumoHoje.distancia.toFixed(1)} km</span>
+        <div className="relative bg-gradient-to-br from-purple-900/60 to-indigo-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_30px_rgba(100,17,217,0.35)] overflow-hidden min-h-[150px] sm:min-h-[280px]">
+
+          <div className="absolute inset-0 pointer-events-none">
+            <MiniMapaCidade atividades={atividades} />
+          </div>
+
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/85 pointer-events-none" />
+
+          <div className="relative flex flex-col justify-between h-full p-4 gap-3">
+
+            {/* LINHA 1: "Hoje" + bloco de calorias */}
+            <div className="flex items-start justify-between gap-2">
+
+              <div className="shrink-0">
+                <p className="text-base font-black leading-tight drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
+                  Hoje
+                </p>
+                <p className="text-sm font-black text-emerald-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
+                  +{xpHoje} XP
+                </p>
               </div>
-              <div className="flex items-center gap-2 text-[11px]">
-                <Clock size={12} className="text-fitcity-energy" />
-                <span className="font-semibold">
+
+              {/* Container interno de calorias — Tailwind puro */}
+              <div
+                className={`relative rounded-2xl border px-4 py-3 w-[130px] overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${
+                  metaHojeBatida
+                    ? 'bg-gradient-to-br from-[#F27405]/35 to-[#6411D9]/55 border-[#6411D9]/35'
+                    : 'bg-[#1E0A3C]/55 border-white/10'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <Flame size={13} className="text-orange-400 shrink-0" />
+                    <span className="text-sm font-black leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                      {resumoHoje.calorias}
+                    </span>
+                  </div>
+                  <span
+                    className={`text-[11px] font-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] shrink-0 ${
+                      metaHojeBatida ? 'text-purple-300' : 'text-[#F27405]'
+                    }`}
+                  >
+                    {Math.round(pctHoje)}%
+                  </span>
+                </div>
+
+                <p className="text-[9px] text-white/50 font-medium leading-none mb-2">
+                  / {META_DIARIA_KCAL} kcal
+                </p>
+
+                <div className="relative h-2 rounded-full bg-black/50 border border-white/10 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      metaHojeBatida
+                        ? 'bg-gradient-to-r from-[#F27405] via-orange-600 to-[#6411D9] shadow-[0_0_10px_rgba(100,17,217,0.7)]'
+                        : 'bg-gradient-to-r from-[#F27405] to-orange-500 shadow-[0_0_8px_rgba(242,116,5,0.5)]'
+                    }`}
+                    style={{ width: `${pctHoje}%` }}
+                  />
+                </div>
+
+                {metaHojeBatida && (
+                  <p className="text-[9px] font-black text-purple-200 uppercase tracking-wider mt-1.5 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                    ★ Meta batida
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* LINHA 2: Km • Tempo • Moedas */}
+            <div className="bg-[#6411D9]/30 backdrop-blur-sm rounded-2xl border border-white/10 flex items-stretch overflow-hidden">
+              <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 min-w-0">
+                <MapPin size={14} className="text-orange-400 shrink-0" />
+                <span className="text-xs font-bold truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                  {resumoHoje.distancia.toFixed(1)} Km
+                </span>
+              </div>
+
+              <div className="w-px bg-white/10 my-2" />
+
+              <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 min-w-0">
+                <Clock size={14} className="text-orange-400 shrink-0" />
+                <span className="text-xs font-bold truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
                   {Math.floor(resumoHoje.tempo / 60)}h {resumoHoje.tempo % 60}min
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-[11px]">
-                <Coins size={12} className="text-fitcity-energy" />
-                <span className="font-semibold">+{resumoHoje.moedas} moedas</span>
-              </div>
-            </div>
-          </div>
 
-          {/* Sua cidade */}
-          <div className="relative bg-gradient-to-br from-purple-900/60 to-indigo-900/40 backdrop-blur-xl border border-white/10 rounded-2xl p-3 shadow-[0_10px_30px_rgba(100,17,217,0.35)] overflow-hidden flex flex-col">
-            <div className="absolute inset-0 opacity-90 pointer-events-none">
-              <MiniMapaCidade atividades={atividades} />
-            </div>
-            <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/25 to-black/75 pointer-events-none" />
-            <div className="relative flex flex-col h-full">
-              <div>
-                <p className="text-[10px] font-bold text-white/60">Sua cidade</p>
-                <p className="text-xs font-black leading-tight mt-0.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
-                  FitCity - Nível {nivelAtual.nivel}
-                </p>
-              </div>
-              <div className="flex-1 min-h-[50px]" />
-              <div className="mt-auto">
-                <p className="text-sm font-black text-emerald-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
-                  +{xpHoje} XP hoje
-                </p>
-                <p className="text-[9px] text-white/60 mt-0.5 truncate">
-                  Próximo: <b className="text-white/80">{proximoEdificio}</b>
-                </p>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <div className="flex-1 flex gap-0.5">
-                    {Array.from({ length: 10 }).map((_, i) => {
-                      const preenchido = (i + 1) * 50 <= atividades.length
-                      return (
-                        <div
-                          key={i}
-                          className="flex-1 h-1.5 rounded-sm"
-                          style={{
-                            background: preenchido
-                              ? 'linear-gradient(180deg, #F27405 0%, #E65A00 100%)'
-                              : 'rgba(255,255,255,0.15)',
-                          }}
-                        />
-                      )
-                    })}
-                  </div>
-                  <span className="text-[8px] font-bold text-white/60 shrink-0">
-                    {atividades.length}/500 XP
-                  </span>
-                </div>
+              <div className="w-px bg-white/10 my-2" />
+
+              <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 min-w-0">
+                <Coins size={14} className="text-orange-400 shrink-0" />
+                <span className="text-xs font-bold truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                  +{resumoHoje.moedas}
+                </span>
               </div>
             </div>
+
           </div>
         </div>
       </div>
@@ -1009,22 +977,20 @@ export default function ActivitiesScreen({ atividades = [], onRegistrar, onSelec
         </button>
       </div>
 
-      {/* ═══════════════ RESUMO SEMANAL (LARGURA TOTAL) + META DA SEMANA ═══════════════ */}
+      {/* ═══════════════ RESUMO SEMANAL ═══════════════ */}
       <div className="px-3">
-        <div className="bg-purple-900/40 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-[0_10px_30px_rgba(100,17,217,0.3)]">
+        <div className="bg-[#350973]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-[0_10px_30px_rgba(100,17,217,0.3)]">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Calendar size={14} className="text-purple-300" />
               <p className="text-sm font-black">Resumo Semanal</p>
             </div>
-            <span className="text-[10px] text-white/40">
-              {dadosSemanaAcumulativo[0]?.dia} - {dadosSemanaAcumulativo[dadosSemanaAcumulativo.length - 1]?.dia} de set
-            </span>
+            <span className="text-[10px] text-white/40">Últimos 7 dias</span>
           </div>
 
           <div className="grid grid-cols-4 gap-2 mb-4">
             <div className="bg-black/20 rounded-xl p-2 flex flex-col items-center">
-              <Clock size={14} className="text-fitcity-energy mb-1" />
+              <Clock size={14} className="text-[#F27405] mb-1" />
               <span className="text-[11px] font-black">{Math.floor(resumoSemana.tempo / 60)}h {resumoSemana.tempo % 60}m</span>
               <span className="text-[8px] text-white/50">Tempo</span>
             </div>
@@ -1045,17 +1011,19 @@ export default function ActivitiesScreen({ atividades = [], onRegistrar, onSelec
             </div>
           </div>
 
-          {/* 🔽 BLOCO META DA SEMANA (dentro do Resumo Semanal) */}
           <BlocoMetaSemanal
             dias={diasDaSemana}
             progressoMeta={progressoMeta}
             metaSemanal={META_SEMANAL_ATIVIDADES}
             proximoEdificio={proximoEdificio}
+            metaBatida={metaSemanalBatida}
+            recompensaJaColetada={recompensaJaColetada}
+            onColetarRecompensa={handleColetarRecompensa}
           />
         </div>
       </div>
 
-      {/* ═══════════════ RESUMO MENSAL (LARGURA TOTAL — calendário) ═══════════════ */}
+      {/* ═══════════════ RESUMO MENSAL ═══════════════ */}
       <div className="px-3">
         <div className="bg-purple-900/40 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-[0_10px_30px_rgba(100,17,217,0.3)]">
           <div className="flex items-center justify-between mb-3">
@@ -1103,21 +1071,19 @@ export default function ActivitiesScreen({ atividades = [], onRegistrar, onSelec
             <div className="flex bg-black/30 rounded-full p-0.5">
               <button
                 onClick={() => setEscopo('semana')}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
-                  escopo === 'semana'
-                    ? 'bg-gradient-to-r from-fitcity-energy to-orange-600 text-white shadow-[0_2px_8px_rgba(242,116,5,0.5)]'
-                    : 'text-white/40'
-                }`}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${escopo === 'semana'
+                  ? 'bg-gradient-to-r from-fitcity-energy to-orange-600 text-white shadow-[0_2px_8px_rgba(242,116,5,0.5)]'
+                  : 'text-white/40'
+                  }`}
               >
                 Semana
               </button>
               <button
                 onClick={() => setEscopo('mes')}
-                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
-                  escopo === 'mes'
-                    ? 'bg-gradient-to-r from-fitcity-energy to-orange-600 text-white shadow-[0_2px_8px_rgba(242,116,5,0.5)]'
-                    : 'text-white/40'
-                }`}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${escopo === 'mes'
+                  ? 'bg-gradient-to-r from-fitcity-energy to-orange-600 text-white shadow-[0_2px_8px_rgba(242,116,5,0.5)]'
+                  : 'text-white/40'
+                  }`}
               >
                 Mês
               </button>

@@ -1,6 +1,6 @@
 // src/components/RegistrarAtividadeModal.jsx
-import { useState, useMemo } from 'react'
-import { X, Table2, Coins } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { X, Table2, Coins, Wand2 } from 'lucide-react'
 import { TIPOS_ATIVIDADE } from '../data/tiposAtividade'
 import { calcularMoedas } from '../utils/atividades'
 import {
@@ -36,7 +36,6 @@ const COR_RARIDADE = {
   lendario: '#F27405',
 }
 
-// 🔥 Cores completas por setor (cor1, cor2, cor3, cor4)
 const SETOR_CORES = {
   agricultura:  { cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50' },
   tecnologia:   { cor1: '#A64B00', cor2: '#D45A00', cor3: '#FF6F00', cor4: '#FF8C42' },
@@ -44,6 +43,32 @@ const SETOR_CORES = {
   comercio:     { cor1: '#660000', cor2: '#A31919', cor3: '#E60000', cor4: '#FF4D4D' },
   imobiliario:  { cor1: '#000066', cor2: '#1A1A8C', cor3: '#3333CC', cor4: '#6666FF' },
   energia:      { cor1: '#665200', cor2: '#A37F19', cor3: '#E6B800', cor4: '#FFD966' },
+}
+
+// =============================================
+// 🔥 SIMULAÇÃO DE CALORIAS — METs por atividade
+// Fórmula: kcal = MET × peso(kg) × tempo(h)
+// =============================================
+const METS_POR_TIPO = {
+  musculacao:  { met: 6.0,  label: 'Musculação' },
+  corrida:     { met: 9.8,  label: 'Corrida' },
+  caminhada:   { met: 3.8,  label: 'Caminhada' },
+  ciclismo:    { met: 7.5,  label: 'Ciclismo' },
+  natacao:     { met: 8.3,  label: 'Natação' },
+  yoga:        { met: 3.0,  label: 'Yoga' },
+  hiit:        { met: 10.5, label: 'HIIT' },
+  funcional:   { met: 8.0,  label: 'Funcional' },
+  // Adicione mais conforme seus TIPOS_ATIVIDADE
+}
+
+// Peso padrão usado quando não vem do perfil (fallback)
+const PESO_PADRAO_KG = 75
+
+// Perfil pré-definido simulado (como se viesse de outra interface)
+const PERFIL_PADRAO = {
+  peso: PESO_PADRAO_KG,
+  altura: 175,
+  idade: 30,
 }
 
 // =============================================
@@ -67,15 +92,51 @@ function calcularXP(moedas, tempo) {
   return Math.round(moedas * 1.5) + bonusTempo
 }
 
+/**
+ * 🔥 Estima calorias com base no tipo, tempo e peso.
+ * Retorna null se não houver dados suficientes.
+ */
+function estimarCalorias(tipo, tempoMin, pesoKg = PESO_PADRAO_KG) {
+  const t = Number(tempoMin)
+  if (!Number.isFinite(t) || t <= 0) return null
+
+  const met = METS_POR_TIPO[tipo]?.met ?? 6.0
+  const horas = t / 60
+  const kcal = met * pesoKg * horas
+  return Math.max(1, Math.round(kcal))
+}
+
 // =============================================
 // COMPONENTE PRINCIPAL
 // =============================================
-export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
+export default function RegistrarAtividadeModal({
+  onClose,
+  onSalvar,
+  perfil: perfilProp, // opcional: se vier do perfil real
+}) {
   const [tipo, setTipo] = useState('musculacao')
   const [valores, setValores] = useState({ tempo: '', distancia: '', calorias: '' })
   const [tabelaAberta, setTabelaAberta] = useState(false)
+  const [caloriasAuto, setCaloriasAuto] = useState(false) // usou sugestão?
 
   const config = TIPOS_ATIVIDADE[tipo]
+
+  // Perfil efetivo (pré-definido ou recebido)
+  const perfil = perfilProp || PERFIL_PADRAO
+
+  // 🔥 Sugestão de calorias baseada em tempo + tipo + peso
+  const caloriasSugeridas = useMemo(() => {
+    return estimarCalorias(tipo, valores.tempo, perfil.peso)
+  }, [tipo, valores.tempo, perfil.peso])
+
+  // 🔥 Auto-preenche calorias quando o usuário muda tempo E o campo está vazio
+  // ou quando ele clicou em "usar sugestão"
+  useEffect(() => {
+    if (caloriasSugeridas == null) return
+    if (caloriasAuto) {
+      setValores((prev) => ({ ...prev, calorias: String(caloriasSugeridas) }))
+    }
+  }, [caloriasSugeridas, caloriasAuto])
 
   const camposOk = useMemo(() => {
     if (!config) return false
@@ -117,19 +178,9 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
       ? Math.max(0, proximaLimite + 1 - moedas)
       : 0
 
-    return {
-      moedas,
-      bonusCal,
-      calorias,
-      tempo,
-      xp,
-      nivel,
-      carta,
-      faltaProximo,
-    }
+    return { moedas, bonusCal, calorias, tempo, xp, nivel, carta, faltaProximo }
   }, [tipo, config, valores, camposOk])
 
-  // 🔥 Cores do setor com fallback seguro
   const coresSetor = resultado
     ? (SETOR_CORES[resultado.carta.setor] || SETOR_CORES.agricultura)
     : SETOR_CORES.agricultura
@@ -137,10 +188,20 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
   const handleChangeTipo = (novoTipo) => {
     setTipo(novoTipo)
     setValores({ tempo: '', distancia: '', calorias: '' })
+    setCaloriasAuto(false)
   }
 
   const handleChangeCampo = (campo, valor) => {
     setValores((prev) => ({ ...prev, [campo]: valor }))
+    if (campo === 'calorias') setCaloriasAuto(false)
+    if (campo === 'tempo' && valor === '') setCaloriasAuto(false)
+  }
+
+  // 🔥 Botão "Usar valor sugerido"
+  const aplicarSugestao = () => {
+    if (caloriasSugeridas == null) return
+    setValores((prev) => ({ ...prev, calorias: String(caloriasSugeridas) }))
+    setCaloriasAuto(true)
   }
 
   const handleSalvar = () => {
@@ -161,7 +222,6 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
 
   return (
     <>
-      {/* ═══════════════ MODAL PRINCIPAL ═══════════════ */}
       <div
         className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm"
         onClick={onClose}
@@ -181,11 +241,9 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
             </button>
           </div>
 
-          {/* ═══════════════ CONTAINER UNIFICADO ═══════════════ */}
+          {/* CONTAINER UNIFICADO */}
           {resultado && (
             <div className="relative rounded-2xl overflow-hidden">
-
-              {/* 🔥 Overlay translúcido com gradiente do setor + roxo */}
               <div
                 className="absolute inset-0 rounded-2xl pointer-events-none"
                 style={{
@@ -195,12 +253,8 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
                 }}
               />
 
-              {/* Conteúdo */}
               <div className="relative flex flex-col gap-4 p-4">
-
-                {/* ─────── BLOCO SUPERIOR: CARTA + RECOMPENSAS ─────── */}
                 <div className="grid grid-cols-[160px_1fr] gap-3">
-                  {/* COLUNA ESQUERDA: CARTA */}
                   <div className="flex flex-col">
                     <CardFitCityActivities
                       nome={resultado.carta.nome}
@@ -213,9 +267,7 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
                     />
                   </div>
 
-                  {/* COLUNA DIREITA: RECOMPENSAS */}
                   <div className="flex flex-col gap-2">
-                    {/* Recompensa em moedas */}
                     <div className="bg-orange-600/20 backdrop-blur-sm border border-orange-500/50 rounded-2xl p-3">
                       <span className="text-[10px] font-bold text-orange-200 uppercase tracking-wider">
                         Recompensa
@@ -233,7 +285,6 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
                       )}
                     </div>
 
-                    {/* XP conquistado */}
                     <div className="bg-purple-700/25 backdrop-blur-sm border border-purple-500/50 rounded-2xl p-3">
                       <span className="text-[10px] font-bold text-purple-200 uppercase tracking-wider">
                         XP Conquistado
@@ -251,17 +302,13 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
                   </div>
                 </div>
 
-                {/* ─────── DIVISOR ─────── */}
                 <div className="h-px bg-white/10" />
 
-                {/* ─────── LINHA: FALTAM + BOTÃO REGRAS ─────── */}
                 <div className="flex items-center justify-between gap-2">
                   {resultado.faltaProximo > 0 ? (
                     <p className="text-[11px] text-white/75 leading-tight">
                       Faltam{' '}
-                      <b className="text-orange-400">
-                        {resultado.faltaProximo} moedas
-                      </b>{' '}
+                      <b className="text-orange-400">{resultado.faltaProximo} moedas</b>{' '}
                       para o próximo nível
                     </p>
                   ) : (
@@ -275,187 +322,170 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
                     className="flex items-center gap-1.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/50 rounded-lg px-2.5 py-1.5 transition-colors flex-shrink-0"
                   >
                     <Table2 size={12} className="text-purple-300" />
-                    <span className="text-[10px] font-bold text-purple-200">
-                      Regras
-                    </span>
+                    <span className="text-[10px] font-bold text-purple-200">Regras</span>
                   </button>
                 </div>
 
-                {/* ─────── RÉGUA DE DESEMPENHO ─────── */}
+                {/* RÉGUA */}
+                <div className="relative pt-6 pb-1">
+                  {(() => {
+                    const nivelClamp = Math.min(resultado.nivel, 5)
+                    const pctPos = ((nivelClamp - 0.5) / 5) * 100
 
-<div className="relative pt-6 pb-1">
-  {/* 🔥 Clamp do nível para a régua nunca passar da última bolinha */}
-  {(() => {
-    const nivelClamp = Math.min(resultado.nivel, 5)
-    const pctPos = ((nivelClamp - 0.5) / 5) * 100
+                    return (
+                      <>
+                        <div
+                          className="absolute transition-all duration-500 ease-out z-20"
+                          style={{ left: `${pctPos}%`, top: 0, transform: 'translateX(-50%)' }}
+                        >
+                          <div
+                            className="rounded-lg px-3 py-1.5 whitespace-nowrap shadow-[0_6px_20px_rgba(242,116,5,0.6)]"
+                            style={{
+                              background: 'linear-gradient(135deg, #FF8C1A 0%, #E65A00 100%)',
+                              border: '1.5px solid #FFB060',
+                            }}
+                          >
+                            <span className="text-[11px] font-black text-white tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+                              {resultado.moedas} Moedas
+                            </span>
+                          </div>
+                          <div
+                            className="w-2.5 h-2.5 rotate-45 mx-auto -mt-1.5"
+                            style={{
+                              background: '#E65A00',
+                              borderRight: '1.5px solid #FFB060',
+                              borderBottom: '1.5px solid #FFB060',
+                            }}
+                          />
+                        </div>
 
-    return (
-      <>
-        {/* Badge flutuante com moedas (sempre alinhado ao marcador, mas nunca além da última bolinha) */}
-        <div
-          className="absolute transition-all duration-500 ease-out z-20"
-          style={{
-            left: `${pctPos}%`,
-            top: 0,
-            transform: 'translateX(-50%)',
-          }}
-        >
-          <div
-            className="rounded-lg px-3 py-1.5 whitespace-nowrap shadow-[0_6px_20px_rgba(242,116,5,0.6)]"
-            style={{
-              background: 'linear-gradient(135deg, #FF8C1A 0%, #E65A00 100%)',
-              border: '1.5px solid #FFB060',
-            }}
-          >
-            <span className="text-[11px] font-black text-white tracking-wide drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
-              {resultado.moedas} Moedas
-            </span>
-          </div>
-          <div
-            className="w-2.5 h-2.5 rotate-45 mx-auto -mt-1.5"
-            style={{
-              background: '#E65A00',
-              borderRight: '1.5px solid #FFB060',
-              borderBottom: '1.5px solid #FFB060',
-            }}
-          />
-        </div>
+                        <div className="relative mt-6">
+                          <div className="h-3 rounded-full bg-[#2a1d4a] border border-white/10" />
 
-        {/* TRILHA DA BARRA */}
-        <div className="relative mt-6">
-          <div className="h-3 rounded-full bg-[#2a1d4a] border border-white/10" />
+                          <div
+                            className="absolute top-0 left-0 h-3 rounded-full transition-all duration-500 ease-out"
+                            style={{
+                              width: `${pctPos}%`,
+                              background: 'linear-gradient(90deg, #F27405 0%, #ea580c 100%)',
+                              boxShadow: '0 0 12px rgba(242,116,5,0.5)',
+                            }}
+                          />
 
-          {/* Barra preenchida: nunca passa de 90% (última bolinha) */}
-          <div
-            className="absolute top-0 left-0 h-3 rounded-full transition-all duration-500 ease-out"
-            style={{
-              width: `${pctPos}%`,
-              background: 'linear-gradient(90deg, #F27405 0%, #ea580c 100%)',
-              boxShadow: '0 0 12px rgba(242,116,5,0.5)',
-            }}
-          />
+                          {[1, 2, 3, 4, 5].map((n) => {
+                            const passado = n < nivelClamp
+                            const ativa = n === nivelClamp
+                            const futuro = n > nivelClamp
 
-          {[1, 2, 3, 4, 5].map((n) => {
-            const passado = n < nivelClamp
-            const ativa = n === nivelClamp
-            const futuro = n > nivelClamp
+                            return (
+                              <div
+                                key={n}
+                                className="absolute top-1/2 transition-all duration-500 z-10"
+                                style={{
+                                  left: `${((n - 0.5) / 5) * 100}%`,
+                                  transform: 'translate(-50%, -50%)',
+                                }}
+                              >
+                                {passado && (
+                                  <div
+                                    className="w-6 h-6 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(242,116,5,0.6)]"
+                                    style={{
+                                      background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
+                                    }}
+                                  >
+                                    <svg
+                                      width="12"
+                                      height="12"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="white"
+                                      strokeWidth="3.5"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    >
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  </div>
+                                )}
 
-            return (
-              <div
-                key={n}
-                className="absolute top-1/2 transition-all duration-500 z-10"
-                style={{
-                  left: `${((n - 0.5) / 5) * 100}%`,
-                  transform: 'translate(-50%, -50%)',
-                }}
-              >
-                {passado && (
-                  <div
-                    className="w-6 h-6 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(242,116,5,0.6)]"
-                    style={{
-                      background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
-                    }}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="3.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </div>
-                )}
+                                {ativa && (
+                                  <div className="relative">
+                                    <div
+                                      className="absolute inset-0 rounded-full blur-md"
+                                      style={{ background: '#F27405', opacity: 0.7 }}
+                                    />
+                                    <div
+                                      className="relative w-8 h-8 rounded-full flex items-center justify-center"
+                                      style={{
+                                        background: '#fff',
+                                        boxShadow:
+                                          '0 0 0 2px #F27405, 0 0 0 3px #fff, 0 0 20px rgba(242,116,5,0.9)',
+                                      }}
+                                    >
+                                      <div
+                                        className="w-full h-full rounded-full flex items-center justify-center"
+                                        style={{
+                                          background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
+                                        }}
+                                      >
+                                        <span className="text-[12px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                                          {resultado.nivel}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
 
-                {ativa && (
-                  <div className="relative">
-                    <div
-                      className="absolute inset-0 rounded-full blur-md"
-                      style={{ background: '#F27405', opacity: 0.7 }}
-                    />
-                    <div
-                      className="relative w-8 h-8 rounded-full flex items-center justify-center"
-                      style={{
-                        background: '#fff',
-                        boxShadow:
-                          '0 0 0 2px #F27405, 0 0 0 3px #fff, 0 0 20px rgba(242,116,5,0.9)',
-                      }}
-                    >
-                      <div
-                        className="w-full h-full rounded-full flex items-center justify-center"
-                        style={{
-                          background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
-                        }}
-                      >
-                        <span className="text-[12px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                          {resultado.nivel} {/* mostra o nível real, não o clampado */}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                                {futuro && (
+                                  <div
+                                    className="w-6 h-6 rounded-full bg-[#1a0a3a] flex items-center justify-center"
+                                    style={{ border: '2px solid rgba(150, 100, 220, 0.5)' }}
+                                  >
+                                    <span className="text-[10px] font-black text-white/40">{n}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
 
-                {futuro && (
-                  <div
-                    className="w-6 h-6 rounded-full bg-[#1a0a3a] flex items-center justify-center"
-                    style={{ border: '2px solid rgba(150, 100, 220, 0.5)' }}
-                  >
-                    <span className="text-[10px] font-black text-white/40">
-                      {n}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                        <div className="relative mt-3 grid grid-cols-5">
+                          {[1, 2, 3, 4, 5].map((n) => {
+                            const ativa = nivelClamp === n
+                            const faixa = FAIXAS[n - 1]
 
-        {/* LABELS DOS NÍVEIS */}
-        <div className="relative mt-3 grid grid-cols-5">
-          {[1, 2, 3, 4, 5].map((n) => {
-            const ativa = nivelClamp === n
-            const faixa = FAIXAS[n - 1]
-
-            return (
-              <div key={n} className="flex flex-col items-center gap-0.5">
-                <span
-                  className={`text-[11px] font-bold transition-colors ${
-                    ativa ? 'text-orange-400' : 'text-white/45'
-                  }`}
-                >
-                  Nv {n}
-                  {ativa && <span className="ml-1">(Atual)</span>}
-                </span>
-                <span
-                  className={`text-[10px] font-medium transition-colors ${
-                    ativa ? 'text-orange-300/80' : 'text-white/30'
-                  }`}
-                >
-                  {faixa.min}-{faixa.max === Infinity ? '∞' : faixa.max}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      </>
-    )
-  })()}
-</div>
+                            return (
+                              <div key={n} className="flex flex-col items-center gap-0.5">
+                                <span
+                                  className={`text-[11px] font-bold transition-colors ${
+                                    ativa ? 'text-orange-400' : 'text-white/45'
+                                  }`}
+                                >
+                                  Nv {n}
+                                  {ativa && <span className="ml-1">(Atual)</span>}
+                                </span>
+                                <span
+                                  className={`text-[10px] font-medium transition-colors ${
+                                    ativa ? 'text-orange-300/80' : 'text-white/30'
+                                  }`}
+                                >
+                                  {faixa.min}-{faixa.max === Infinity ? '∞' : faixa.max}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )
+                  })()}
+                </div>
               </div>
             </div>
           )}
 
-          {/* ═══════════════ DADOS DA ATIVIDADE ═══════════════ */}
+          {/* DADOS DA ATIVIDADE */}
           <div className="flex flex-col gap-3 mt-2">
-            <h3 className="text-base font-bold text-white">
-              Dados da Atividade Realizada
-            </h3>
+            <h3 className="text-base font-bold text-white">Dados da Atividade Realizada</h3>
 
-            {/* Seleção de tipo */}
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(TIPOS_ATIVIDADE).map(([id, { label, Icon }]) => {
                 const ativo = tipo === id
@@ -470,11 +500,7 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
                     }`}
                   >
                     <Icon size={16} className={ativo ? 'text-white' : 'text-fitcity-energy/70'} />
-                    <span
-                      className={`text-xs font-bold ${
-                        ativo ? 'text-white' : 'text-white/50'
-                      }`}
-                    >
+                    <span className={`text-xs font-bold ${ativo ? 'text-white' : 'text-white/50'}`}>
                       {label}
                     </span>
                   </button>
@@ -482,43 +508,80 @@ export default function RegistrarAtividadeModal({ onClose, onSalvar }) {
               })}
             </div>
 
-            {/* Campos inline */}
-            {config && (
-              <div
-                className={`grid gap-3 ${
-                  config.campos.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+{config && (
+  <div
+    className={`grid gap-3 ${
+      config.campos.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
+    }`}
+  >
+    {config.campos.map((campo) => {
+      const isCalorias = campo === 'calorias'
+      const mostraSugestao =
+        isCalorias && caloriasSugeridas != null && caloriasSugeridas > 0
+
+      return (
+        <div key={campo} className="flex flex-col gap-1">
+          <label className="text-[10px] font-bold text-fitcity-energy uppercase tracking-wider">
+            {LABEL_CAMPO[campo].label}
+          </label>
+
+          {/* 🔥 Se for calorias COM sugestão, input + botão lado a lado */}
+          {isCalorias && mostraSugestao ? (
+            <div className="flex items-stretch gap-1.5">
+              <input
+                type="number"
+                inputMode="decimal"
+                value={valores[campo]}
+                onChange={(e) => handleChangeCampo(campo, e.target.value)}
+                placeholder={LABEL_CAMPO[campo].placeholder}
+                className="flex-1 min-w-0 bg-white/5 border-2 border-white/10 rounded-xl px-3 py-3 text-white text-base font-bold placeholder:text-white/20 placeholder:font-normal outline-none focus:border-fitcity-energy transition-colors"
+              />
+
+              <button
+                type="button"
+                onClick={aplicarSugestao}
+                className={`flex items-center justify-center gap-1 rounded-xl px-2.5 border text-[10px] font-bold transition-all flex-shrink-0 ${
+                  caloriasAuto
+                    ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-300'
+                    : 'bg-purple-500/15 border-purple-400/40 text-purple-200 hover:bg-purple-500/25'
                 }`}
+                title={`Sugestão: ${METS_POR_TIPO[tipo]?.label ?? tipo} • ${perfil.peso}kg • ${valores.tempo}min`}
               >
-                {config.campos.map((campo) => (
-                  <div key={campo} className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-fitcity-energy uppercase tracking-wider">
-                      {LABEL_CAMPO[campo].label}
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      value={valores[campo]}
-                      onChange={(e) => handleChangeCampo(campo, e.target.value)}
-                      placeholder={LABEL_CAMPO[campo].placeholder}
-                      className="bg-white/5 border-2 border-white/10 rounded-xl px-3 py-3 text-white text-base font-bold placeholder:text-white/20 placeholder:font-normal outline-none focus:border-fitcity-energy transition-colors"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+                <Wand2 size={11} />
+                <span className="whitespace-nowrap">
+                  {caloriasAuto ? caloriasSugeridas : `~${caloriasSugeridas}`}
+                </span>
+              </button>
+            </div>
+          ) : (
+            /* Input normal (todos os outros campos) */
+            <input
+              type="number"
+              inputMode="decimal"
+              value={valores[campo]}
+              onChange={(e) => handleChangeCampo(campo, e.target.value)}
+              placeholder={LABEL_CAMPO[campo].placeholder}
+              className="bg-white/5 border-2 border-white/10 rounded-xl px-3 py-3 text-white text-base font-bold placeholder:text-white/20 placeholder:font-normal outline-none focus:border-fitcity-energy transition-colors"
+            />
+          )}
+        </div>
+      )
+    })}
+  </div>
+)}
           </div>
 
-          {/* ═══════════════ BOTÃO SALVAR ═══════════════ */}
+          {/* BOTÃO SALVAR */}
           <button
             onClick={handleSalvar}
             disabled={!podeSalvar}
             className="mt-1 bg-gradient-to-r from-fitcity-energy to-orange-600 rounded-2xl py-4 font-black text-white text-sm tracking-wider uppercase shadow-[0_10px_25px_rgba(242,116,5,0.45)] disabled:opacity-40 disabled:shadow-none transition-all active:scale-[0.98]"
           >
-salvar e coletar recompensas          </button>
+            salvar e coletar recompensas
+          </button>
         </div>
       </div>
 
-      {/* ═══════════════ MODAL DE TABELA (OVERLAY) ═══════════════ */}
       {tabelaAberta && (
         <TabelaFaixas
           onClose={() => setTabelaAberta(false)}
@@ -530,9 +593,8 @@ salvar e coletar recompensas          </button>
   )
 }
 
-
 // =============================================
-// MODAL DE TABELA DE FAIXAS (overlay com mesmo tamanho do principal)
+// MODAL DE TABELA DE FAIXAS
 // =============================================
 function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
   return (
@@ -544,7 +606,6 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
         className="w-full max-w-[480px] bg-fitcity-bg border-t border-white/10 rounded-t-3xl p-5 pb-3 flex flex-col gap-4 shadow-[0_-15px_50px_rgba(0,0,0,0.6)] max-h-[98vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* HEADER */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -562,7 +623,6 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
           </button>
         </div>
 
-        {/* CABEÇALHO DA TABELA */}
         <div className="grid grid-cols-[60px_90px_1fr_70px] gap-2 px-3 py-2 text-[10px] font-bold text-white/45 uppercase tracking-wider border-b border-white/5">
           <span>Nível</span>
           <span>Faixa de Moedas</span>
@@ -570,7 +630,6 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
           <span className="text-right">XP Cidade</span>
         </div>
 
-        {/* LINHAS DA TABELA */}
         <div className="flex flex-col">
           {FAIXAS.map((faixa) => {
             const ativa = nivelAtual === faixa.nivel
@@ -585,45 +644,26 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
                     : 'bg-white/[0.02] border-white/5'
                 }`}
               >
-                <span
-                  className={`text-xs font-black ${
-                    ativa ? 'text-fitcity-energy' : 'text-white/50'
-                  }`}
-                >
+                <span className={`text-xs font-black ${ativa ? 'text-fitcity-energy' : 'text-white/50'}`}>
                   Nv {faixa.nivel}
                 </span>
 
-                <span
-                  className={`text-[11px] font-bold ${
-                    ativa ? 'text-fitcity-energy' : 'text-white/60'
-                  }`}
-                >
+                <span className={`text-[11px] font-bold ${ativa ? 'text-fitcity-energy' : 'text-white/60'}`}>
                   {faixa.min} a {faixa.max === Infinity ? '∞' : faixa.max} 🪙
                 </span>
 
                 <div className="flex items-center gap-1.5 min-w-0">
                   <div
                     className="w-2 h-2 rounded-full flex-shrink-0"
-                    style={{
-                      background: cor,
-                      boxShadow: ativa ? `0 0 8px ${cor}` : 'none',
-                    }}
+                    style={{ background: cor, boxShadow: ativa ? `0 0 8px ${cor}` : 'none' }}
                   />
-                  <span
-                    className={`text-[11px] truncate ${
-                      ativa ? 'text-white font-bold' : 'text-white/60'
-                    }`}
-                  >
+                  <span className={`text-[11px] truncate ${ativa ? 'text-white font-bold' : 'text-white/60'}`}>
                     {faixa.nome}
                   </span>
                 </div>
 
                 <div className="flex flex-col items-end">
-                  <span
-                    className={`text-[11px] font-bold ${
-                      ativa ? 'text-purple-300' : 'text-white/50'
-                    }`}
-                  >
+                  <span className={`text-[11px] font-bold ${ativa ? 'text-purple-300' : 'text-white/50'}`}>
                     +{faixa.xp} XP
                   </span>
                   {ativa && (
@@ -637,7 +677,6 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
           })}
         </div>
 
-        {/* EXPLICAÇÃO */}
         <div className="bg-emerald-600/10 border border-emerald-500/30 rounded-2xl p-4">
           <h3 className="text-xs font-bold text-emerald-300 mb-1.5 flex items-center gap-1.5">
             💡 Como funciona o cálculo de moedas?
@@ -652,7 +691,6 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
           </p>
         </div>
 
-        {/* BOTÃO FECHAR */}
         <button
           onClick={onClose}
           className="mt-1 bg-gradient-to-r from-fitcity-energy to-orange-600 rounded-2xl py-4 font-black text-white text-sm tracking-wider uppercase shadow-[0_10px_25px_rgba(242,116,5,0.45)] transition-all active:scale-[0.98]"
