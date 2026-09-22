@@ -2,12 +2,14 @@
 import { useState, useMemo, useEffect } from 'react'
 import { X, Table2, Coins, Wand2 } from 'lucide-react'
 import { TIPOS_ATIVIDADE } from '../data/tiposAtividade'
-import { calcularMoedas } from '../utils/atividades'
 import {
-  getCartaPorMoedas,
-  getNivelPorMoedas,
-  LIMITE_NIVEL,
-} from '../utils/cartasPorMoedas'
+  calcularMoedas,
+  nivelPorAtividade,
+  raridadePorAtividade,
+} from '../utils/atividades'
+import { calcularXpAtividade } from '../utils/progressaoUsuario'
+import { resolverVisualEdificio } from '../data/edificiosVisual'
+import { useFitCityStore } from '../store/fitCityStore'
 import CardFitCityActivities from './CardFitCityActivities'
 
 // =============================================
@@ -20,12 +22,11 @@ const LABEL_CAMPO = {
 }
 
 const FAIXAS = [
-  { nivel: 1, min: 1,  max: 5,  nome: 'Plantação De Vegetais',            xp: 5,  raridade: 'comum' },
-  { nivel: 2, min: 6,  max: 10, nome: 'Granja De Aves',                   xp: 10, raridade: 'incomum' },
-  { nivel: 3, min: 11, max: 20, nome: 'Fazenda De Vacas',                 xp: 20, raridade: 'raro' },
-  { nivel: 4, min: 21, max: 30, nome: 'Criação De Ovinos',                xp: 32, raridade: 'epico' },
-  { nivel: 5, min: 31, max: 50, nome: 'Cooperativa Agrícola',             xp: 50, raridade: 'lendario' },
-  { nivel: 6, min: 51, max: Infinity, nome: 'Centro De Comércio De Plantações', xp: 80, raridade: 'lendario' },
+  { nivel: 1, min: 0,  max: 19,  nome: 'Comum',    raridade: 'comum' },
+  { nivel: 2, min: 20, max: 39,  nome: 'Incomum',  raridade: 'incomum' },
+  { nivel: 3, min: 40, max: 59,  nome: 'Raro',     raridade: 'raro' },
+  { nivel: 4, min: 60, max: 79,  nome: 'Épico',    raridade: 'epico' },
+  { nivel: 5, min: 80, max: 100, nome: 'Lendário', raridade: 'lendario' },
 ]
 
 const COR_RARIDADE = {
@@ -37,39 +38,20 @@ const COR_RARIDADE = {
 }
 
 const SETOR_CORES = {
-  agricultura:  { cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50' },
-  tecnologia:   { cor1: '#A64B00', cor2: '#D45A00', cor3: '#FF6F00', cor4: '#FF8C42' },
-  industria:    { cor1: '#1A1A1A', cor2: '#4D4D4D', cor3: '#808080', cor4: '#B3B3B3' },
-  comercio:     { cor1: '#660000', cor2: '#A31919', cor3: '#E60000', cor4: '#FF4D4D' },
-  imobiliario:  { cor1: '#000066', cor2: '#1A1A8C', cor3: '#3333CC', cor4: '#6666FF' },
-  energia:      { cor1: '#665200', cor2: '#A37F19', cor3: '#E6B800', cor4: '#FFD966' },
+  agricultura: { cor1: '#003816', cor2: '#1A5E2A', cor3: '#0C9123', cor4: '#4CAF50' },
 }
 
 // =============================================
-// 🔥 SIMULAÇÃO DE CALORIAS — METs por atividade
-// Fórmula: kcal = MET × peso(kg) × tempo(h)
+// METs — sugestão de calorias
 // =============================================
 const METS_POR_TIPO = {
   musculacao:  { met: 6.0,  label: 'Musculação' },
   corrida:     { met: 9.8,  label: 'Corrida' },
   caminhada:   { met: 3.8,  label: 'Caminhada' },
-  ciclismo:    { met: 7.5,  label: 'Ciclismo' },
-  natacao:     { met: 8.3,  label: 'Natação' },
-  yoga:        { met: 3.0,  label: 'Yoga' },
-  hiit:        { met: 10.5, label: 'HIIT' },
-  funcional:   { met: 8.0,  label: 'Funcional' },
-  // Adicione mais conforme seus TIPOS_ATIVIDADE
 }
 
-// Peso padrão usado quando não vem do perfil (fallback)
 const PESO_PADRAO_KG = 75
-
-// Perfil pré-definido simulado (como se viesse de outra interface)
-const PERFIL_PADRAO = {
-  peso: PESO_PADRAO_KG,
-  altura: 175,
-  idade: 30,
-}
+const PERFIL_PADRAO = { peso: PESO_PADRAO_KG, altura: 175, idade: 30 }
 
 // =============================================
 // HELPERS
@@ -80,57 +62,51 @@ function parseValor(v) {
   return Number.isFinite(n) ? n : null
 }
 
-function bonusPorCalorias(calorias) {
-  const c = Number(calorias) || 0
-  if (c <= 0) return 0
-  return Math.floor(c / 100) * 2
-}
-
-function calcularXP(moedas, tempo) {
-  const t = Number(tempo) || 0
-  const bonusTempo = Math.floor(t / 10) * 1
-  return Math.round(moedas * 1.5) + bonusTempo
-}
-
-/**
- * 🔥 Estima calorias com base no tipo, tempo e peso.
- * Retorna null se não houver dados suficientes.
- */
 function estimarCalorias(tipo, tempoMin, pesoKg = PESO_PADRAO_KG) {
   const t = Number(tempoMin)
   if (!Number.isFinite(t) || t <= 0) return null
-
   const met = METS_POR_TIPO[tipo]?.met ?? 6.0
-  const horas = t / 60
-  const kcal = met * pesoKg * horas
-  return Math.max(1, Math.round(kcal))
+  return Math.max(1, Math.round(met * pesoKg * (t / 60)))
+}
+
+/**
+ * 🔥 Converte o objeto de campos do modal em objeto "atividade"
+ * com os nomes canônicos esperados por avaliarAtividade/calcularMoedas.
+ *
+ * `tempo` (nome do campo no modal) → `duracao` (nome canônico)
+ */
+function montarAtividade(tipo, valores, camposConfig) {
+  const atividade = { tipo }
+  camposConfig.forEach((c) => {
+    const chave = c === 'tempo' ? 'duracao' : c
+    atividade[chave] = parseValor(valores[c])
+  })
+  return atividade
 }
 
 // =============================================
-// COMPONENTE PRINCIPAL
+// COMPONENTE
 // =============================================
 export default function RegistrarAtividadeModal({
   onClose,
   onSalvar,
-  perfil: perfilProp, // opcional: se vier do perfil real
+  perfil: perfilProp,
 }) {
+  const registrarAtividadeStore = useFitCityStore((s) => s.registrarAtividade)
+
   const [tipo, setTipo] = useState('musculacao')
   const [valores, setValores] = useState({ tempo: '', distancia: '', calorias: '' })
   const [tabelaAberta, setTabelaAberta] = useState(false)
-  const [caloriasAuto, setCaloriasAuto] = useState(false) // usou sugestão?
+  const [caloriasAuto, setCaloriasAuto] = useState(false)
 
   const config = TIPOS_ATIVIDADE[tipo]
-
-  // Perfil efetivo (pré-definido ou recebido)
   const perfil = perfilProp || PERFIL_PADRAO
 
-  // 🔥 Sugestão de calorias baseada em tempo + tipo + peso
-  const caloriasSugeridas = useMemo(() => {
-    return estimarCalorias(tipo, valores.tempo, perfil.peso)
-  }, [tipo, valores.tempo, perfil.peso])
+  const caloriasSugeridas = useMemo(
+    () => estimarCalorias(tipo, valores.tempo, perfil.peso),
+    [tipo, valores.tempo, perfil.peso]
+  )
 
-  // 🔥 Auto-preenche calorias quando o usuário muda tempo E o campo está vazio
-  // ou quando ele clicou em "usar sugestão"
   useEffect(() => {
     if (caloriasSugeridas == null) return
     if (caloriasAuto) {
@@ -150,40 +126,41 @@ export default function RegistrarAtividadeModal({
 
   const podeSalvar = !!tipo && camposOk
 
+  // ═════════════════════════════════════════════
+  //  RESULTADO — usa a MESMA fonte da store
+  // ═════════════════════════════════════════════
   const resultado = useMemo(() => {
     if (!tipo || !config || !camposOk) return null
 
-    const atividade = { tipo }
-    config.campos.forEach((c) => {
-      atividade[c] = parseValor(valores[c])
-    })
+    // 🔥 Monta atividade com `duracao` (nome canônico)
+    const atividade = montarAtividade(tipo, valores, config.campos)
 
-    const moedasModelo = calcularMoedas(atividade)
-    if (!Number.isFinite(moedasModelo)) return null
+    const moedas = calcularMoedas(atividade)
+    const nivel = nivelPorAtividade(atividade)
+    const raridade = raridadePorAtividade(atividade)
+    const xp = calcularXpAtividade({ ...atividade, moedas })
+    const visual = resolverVisualEdificio(nivel, 'agricultura')
 
-    const calorias = Number(atividade.calorias) || 0
-    const tempo = Number(atividade.tempo) || 0
-    const bonusCal = bonusPorCalorias(calorias)
-    const moedas = moedasModelo + bonusCal
-
-    if (!Number.isFinite(moedas) || moedas <= 0) return null
-
-    const nivel = getNivelPorMoedas(moedas)
-    const carta = getCartaPorMoedas(moedas)
-    const xp = calcularXP(moedas, tempo)
-
-    const faixaAtual = FAIXAS[nivel - 1]
-    const proximaLimite = faixaAtual.max === Infinity ? null : faixaAtual.max
-    const faltaProximo = proximaLimite != null
-      ? Math.max(0, proximaLimite + 1 - moedas)
-      : 0
-
-    return { moedas, bonusCal, calorias, tempo, xp, nivel, carta, faltaProximo }
+    return {
+      moedas,
+      nivel,
+      raridade,
+      xp,
+      carta: {
+        nome: visual.nome,
+        raridade,
+        cor1: SETOR_CORES.agricultura.cor1,
+        cor2: SETOR_CORES.agricultura.cor2,
+        cor3: SETOR_CORES.agricultura.cor3,
+        cor4: SETOR_CORES.agricultura.cor4,
+      },
+      duracao: atividade.duracao,
+      distancia: atividade.distancia,
+      calorias: atividade.calorias,
+    }
   }, [tipo, config, valores, camposOk])
 
-  const coresSetor = resultado
-    ? (SETOR_CORES[resultado.carta.setor] || SETOR_CORES.agricultura)
-    : SETOR_CORES.agricultura
+  const coresSetor = SETOR_CORES.agricultura
 
   const handleChangeTipo = (novoTipo) => {
     setTipo(novoTipo)
@@ -197,7 +174,6 @@ export default function RegistrarAtividadeModal({
     if (campo === 'tempo' && valor === '') setCaloriasAuto(false)
   }
 
-  // 🔥 Botão "Usar valor sugerido"
   const aplicarSugestao = () => {
     if (caloriasSugeridas == null) return
     setValores((prev) => ({ ...prev, calorias: String(caloriasSugeridas) }))
@@ -207,16 +183,25 @@ export default function RegistrarAtividadeModal({
   const handleSalvar = () => {
     if (!podeSalvar || !resultado) return
 
-    const atividade = { tipo }
-    config.campos.forEach((c) => {
-      atividade[c] = parseValor(valores[c])
+    // 🔥 Monta atividade com `duracao` (nome canônico)
+    const atividade = montarAtividade(tipo, valores, config.campos)
+
+    registrarAtividadeStore({
+      tipo: atividade.tipo,
+      duracao: atividade.duracao || 0,
+      distancia: atividade.distancia || 0,
+      calorias: atividade.calorias || 0,
+      origem: 'manual',
     })
 
-    onSalvar({
-      ...atividade,
-      moedas: resultado.moedas,
-      xp: resultado.xp,
-    })
+    if (typeof onSalvar === 'function') {
+      onSalvar({
+        ...atividade,
+        moedas: resultado.moedas,
+        xp: resultado.xp,
+      })
+    }
+
     onClose()
   }
 
@@ -241,7 +226,7 @@ export default function RegistrarAtividadeModal({
             </button>
           </div>
 
-          {/* CONTAINER UNIFICADO */}
+          {/* CONTAINER */}
           {resultado && (
             <div className="relative rounded-2xl overflow-hidden">
               <div
@@ -278,11 +263,6 @@ export default function RegistrarAtividadeModal({
                         </span>
                         <Coins size={20} className="text-orange-400" strokeWidth={2.5} />
                       </div>
-                      {resultado.bonusCal > 0 && (
-                        <p className="text-[10px] text-orange-100/80 mt-0.5 leading-tight">
-                          (inclui +{resultado.bonusCal} por {resultado.calorias} kcal)
-                        </p>
-                      )}
                     </div>
 
                     <div className="bg-purple-700/25 backdrop-blur-sm border border-purple-500/50 rounded-2xl p-3">
@@ -295,42 +275,17 @@ export default function RegistrarAtividadeModal({
                         </span>
                         <span className="text-xs font-bold text-purple-200">XP</span>
                       </div>
-                      <p className="text-[10px] text-purple-100/80 mt-0.5 leading-tight">
-                        Cidade Conquista
-                      </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="h-px bg-white/10" />
 
-                <div className="flex items-center justify-between gap-2">
-                  {resultado.faltaProximo > 0 ? (
-                    <p className="text-[11px] text-white/75 leading-tight">
-                      Faltam{' '}
-                      <b className="text-orange-400">{resultado.faltaProximo} moedas</b>{' '}
-                      para o próximo nível
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-orange-400 font-bold leading-tight">
-                      ★ Nível máximo de carta!
-                    </p>
-                  )}
-
-                  <button
-                    onClick={() => setTabelaAberta(true)}
-                    className="flex items-center gap-1.5 bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/50 rounded-lg px-2.5 py-1.5 transition-colors flex-shrink-0"
-                  >
-                    <Table2 size={12} className="text-purple-300" />
-                    <span className="text-[10px] font-bold text-purple-200">Regras</span>
-                  </button>
-                </div>
-
-                {/* RÉGUA */}
+                {/* RÉGUA 5 NÍVEIS */}
                 <div className="relative pt-6 pb-1">
                   {(() => {
-                    const nivelClamp = Math.min(resultado.nivel, 5)
-                    const pctPos = ((nivelClamp - 0.5) / 5) * 100
+                    const nivel = resultado.nivel
+                    const pctPos = ((nivel - 0.5) / 5) * 100
 
                     return (
                       <>
@@ -372,9 +327,10 @@ export default function RegistrarAtividadeModal({
                           />
 
                           {[1, 2, 3, 4, 5].map((n) => {
-                            const passado = n < nivelClamp
-                            const ativa = n === nivelClamp
-                            const futuro = n > nivelClamp
+                            const passado = n < nivel
+                            const ativa = n === nivel
+                            const futuro = n > nivel
+                            const corRaridade = COR_RARIDADE[FAIXAS[n - 1].raridade]
 
                             return (
                               <div
@@ -388,20 +344,9 @@ export default function RegistrarAtividadeModal({
                                 {passado && (
                                   <div
                                     className="w-6 h-6 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(242,116,5,0.6)]"
-                                    style={{
-                                      background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
-                                    }}
+                                    style={{ background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)' }}
                                   >
-                                    <svg
-                                      width="12"
-                                      height="12"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                      stroke="white"
-                                      strokeWidth="3.5"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                                       <polyline points="20 6 9 17 4 12" />
                                     </svg>
                                   </div>
@@ -411,24 +356,23 @@ export default function RegistrarAtividadeModal({
                                   <div className="relative">
                                     <div
                                       className="absolute inset-0 rounded-full blur-md"
-                                      style={{ background: '#F27405', opacity: 0.7 }}
+                                      style={{ background: corRaridade, opacity: 0.7 }}
                                     />
                                     <div
                                       className="relative w-8 h-8 rounded-full flex items-center justify-center"
                                       style={{
                                         background: '#fff',
-                                        boxShadow:
-                                          '0 0 0 2px #F27405, 0 0 0 3px #fff, 0 0 20px rgba(242,116,5,0.9)',
+                                        boxShadow: `0 0 0 2px ${corRaridade}, 0 0 0 3px #fff, 0 0 20px ${corRaridade}aa`,
                                       }}
                                     >
                                       <div
                                         className="w-full h-full rounded-full flex items-center justify-center"
                                         style={{
-                                          background: 'linear-gradient(135deg, #F27405 0%, #ea580c 100%)',
+                                          background: `linear-gradient(135deg, ${corRaridade} 0%, ${corRaridade}cc 100%)`,
                                         }}
                                       >
                                         <span className="text-[12px] font-black text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                                          {resultado.nivel}
+                                          {n}
                                         </span>
                                       </div>
                                     </div>
@@ -450,25 +394,15 @@ export default function RegistrarAtividadeModal({
 
                         <div className="relative mt-3 grid grid-cols-5">
                           {[1, 2, 3, 4, 5].map((n) => {
-                            const ativa = nivelClamp === n
+                            const ativa = nivel === n
                             const faixa = FAIXAS[n - 1]
-
                             return (
                               <div key={n} className="flex flex-col items-center gap-0.5">
-                                <span
-                                  className={`text-[11px] font-bold transition-colors ${
-                                    ativa ? 'text-orange-400' : 'text-white/45'
-                                  }`}
-                                >
-                                  Nv {n}
-                                  {ativa && <span className="ml-1">(Atual)</span>}
+                                <span className={`text-[11px] font-bold transition-colors ${ativa ? 'text-orange-400' : 'text-white/45'}`}>
+                                  Nv {n}{ativa && <span className="ml-1">(Atual)</span>}
                                 </span>
-                                <span
-                                  className={`text-[10px] font-medium transition-colors ${
-                                    ativa ? 'text-orange-300/80' : 'text-white/30'
-                                  }`}
-                                >
-                                  {faixa.min}-{faixa.max === Infinity ? '∞' : faixa.max}
+                                <span className={`text-[10px] font-medium transition-colors ${ativa ? 'text-orange-300/80' : 'text-white/30'}`}>
+                                  {faixa.min}-{faixa.max}
                                 </span>
                               </div>
                             )
@@ -508,70 +442,61 @@ export default function RegistrarAtividadeModal({
               })}
             </div>
 
-{config && (
-  <div
-    className={`grid gap-3 ${
-      config.campos.length === 2 ? 'grid-cols-2' : 'grid-cols-3'
-    }`}
-  >
-    {config.campos.map((campo) => {
-      const isCalorias = campo === 'calorias'
-      const mostraSugestao =
-        isCalorias && caloriasSugeridas != null && caloriasSugeridas > 0
+            {config && (
+              <div className={`grid gap-3 ${config.campos.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                {config.campos.map((campo) => {
+                  const isCalorias = campo === 'calorias'
+                  const mostraSugestao = isCalorias && caloriasSugeridas != null && caloriasSugeridas > 0
 
-      return (
-        <div key={campo} className="flex flex-col gap-1">
-          <label className="text-[10px] font-bold text-fitcity-energy uppercase tracking-wider">
-            {LABEL_CAMPO[campo].label}
-          </label>
+                  return (
+                    <div key={campo} className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-fitcity-energy uppercase tracking-wider">
+                        {LABEL_CAMPO[campo].label}
+                      </label>
 
-          {/* 🔥 Se for calorias COM sugestão, input + botão lado a lado */}
-          {isCalorias && mostraSugestao ? (
-            <div className="flex items-stretch gap-1.5">
-              <input
-                type="number"
-                inputMode="decimal"
-                value={valores[campo]}
-                onChange={(e) => handleChangeCampo(campo, e.target.value)}
-                placeholder={LABEL_CAMPO[campo].placeholder}
-                className="flex-1 min-w-0 bg-white/5 border-2 border-white/10 rounded-xl px-3 py-3 text-white text-base font-bold placeholder:text-white/20 placeholder:font-normal outline-none focus:border-fitcity-energy transition-colors"
-              />
-
-              <button
-                type="button"
-                onClick={aplicarSugestao}
-                className={`flex items-center justify-center gap-1 rounded-xl px-2.5 border text-[10px] font-bold transition-all flex-shrink-0 ${
-                  caloriasAuto
-                    ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-300'
-                    : 'bg-purple-500/15 border-purple-400/40 text-purple-200 hover:bg-purple-500/25'
-                }`}
-                title={`Sugestão: ${METS_POR_TIPO[tipo]?.label ?? tipo} • ${perfil.peso}kg • ${valores.tempo}min`}
-              >
-                <Wand2 size={11} />
-                <span className="whitespace-nowrap">
-                  {caloriasAuto ? caloriasSugeridas : `~${caloriasSugeridas}`}
-                </span>
-              </button>
-            </div>
-          ) : (
-            /* Input normal (todos os outros campos) */
-            <input
-              type="number"
-              inputMode="decimal"
-              value={valores[campo]}
-              onChange={(e) => handleChangeCampo(campo, e.target.value)}
-              placeholder={LABEL_CAMPO[campo].placeholder}
-              className="bg-white/5 border-2 border-white/10 rounded-xl px-3 py-3 text-white text-base font-bold placeholder:text-white/20 placeholder:font-normal outline-none focus:border-fitcity-energy transition-colors"
-            />
-          )}
-        </div>
-      )
-    })}
-  </div>
-)}
+                      {isCalorias && mostraSugestao ? (
+                        <div className="flex items-stretch gap-1.5">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            value={valores[campo]}
+                            onChange={(e) => handleChangeCampo(campo, e.target.value)}
+                            placeholder={LABEL_CAMPO[campo].placeholder}
+                            className="flex-1 min-w-0 bg-white/5 border-2 border-white/10 rounded-xl px-3 py-3 text-white text-base font-bold placeholder:text-white/20 placeholder:font-normal outline-none focus:border-fitcity-energy transition-colors"
+                          />
+                          <button
+                            type="button"
+                            onClick={aplicarSugestao}
+                            className={`flex items-center justify-center gap-1 rounded-xl px-2.5 border text-[10px] font-bold transition-all flex-shrink-0 ${
+                              caloriasAuto
+                                ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-300'
+                                : 'bg-purple-500/15 border-purple-400/40 text-purple-200 hover:bg-purple-500/25'
+                            }`}
+                            title={`Sugestão: ${METS_POR_TIPO[tipo]?.label ?? tipo} • ${perfil.peso}kg • ${valores.tempo}min`}
+                          >
+                            <Wand2 size={11} />
+                            <span className="whitespace-nowrap">
+                              {caloriasAuto ? caloriasSugeridas : `~${caloriasSugeridas}`}
+                            </span>
+                          </button>
+                        </div>
+                      ) : (
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          value={valores[campo]}
+                          onChange={(e) => handleChangeCampo(campo, e.target.value)}
+                          placeholder={LABEL_CAMPO[campo].placeholder}
+                          className="bg-white/5 border-2 border-white/10 rounded-xl px-3 py-3 text-white text-base font-bold placeholder:text-white/20 placeholder:font-normal outline-none focus:border-fitcity-energy transition-colors"
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
-          {/* BOTÃO SALVAR */}
           <button
             onClick={handleSalvar}
             disabled={!podeSalvar}
@@ -583,11 +508,7 @@ export default function RegistrarAtividadeModal({
       </div>
 
       {tabelaAberta && (
-        <TabelaFaixas
-          onClose={() => setTabelaAberta(false)}
-          nivelAtual={resultado?.nivel ?? 1}
-          moedasAtuais={resultado?.moedas ?? 0}
-        />
+        <TabelaFaixas onClose={() => setTabelaAberta(false)} nivelAtual={resultado?.nivel ?? 1} />
       )}
     </>
   )
@@ -596,7 +517,7 @@ export default function RegistrarAtividadeModal({
 // =============================================
 // MODAL DE TABELA DE FAIXAS
 // =============================================
-function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
+function TabelaFaixas({ onClose, nivelAtual }) {
   return (
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/80 backdrop-blur-md"
@@ -612,7 +533,7 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
               📊 Faixas de Recompensa
             </h2>
             <p className="text-[11px] text-white/50 mt-0.5">
-              Entenda como a equivalência de esforço do seu treino gera cartas e moedas.
+              Entenda como o esforço do seu treino gera moedas, cartas e edifícios.
             </p>
           </div>
           <button
@@ -625,9 +546,9 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
 
         <div className="grid grid-cols-[60px_90px_1fr_70px] gap-2 px-3 py-2 text-[10px] font-bold text-white/45 uppercase tracking-wider border-b border-white/5">
           <span>Nível</span>
-          <span>Faixa de Moedas</span>
-          <span>Carta / Edificação</span>
-          <span className="text-right">XP Cidade</span>
+          <span>FitScore</span>
+          <span>Raridade</span>
+          <span className="text-right">Faixa</span>
         </div>
 
         <div className="flex flex-col">
@@ -639,19 +560,15 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
               <div
                 key={faixa.nivel}
                 className={`grid grid-cols-[60px_90px_1fr_70px] gap-2 items-center px-3 py-3 rounded-xl border transition-all ${
-                  ativa
-                    ? 'bg-fitcity-energy/10 border-fitcity-energy/50'
-                    : 'bg-white/[0.02] border-white/5'
+                  ativa ? 'bg-fitcity-energy/10 border-fitcity-energy/50' : 'bg-white/[0.02] border-white/5'
                 }`}
               >
                 <span className={`text-xs font-black ${ativa ? 'text-fitcity-energy' : 'text-white/50'}`}>
                   Nv {faixa.nivel}
                 </span>
-
                 <span className={`text-[11px] font-bold ${ativa ? 'text-fitcity-energy' : 'text-white/60'}`}>
-                  {faixa.min} a {faixa.max === Infinity ? '∞' : faixa.max} 🪙
+                  {faixa.min}-{faixa.max}
                 </span>
-
                 <div className="flex items-center gap-1.5 min-w-0">
                   <div
                     className="w-2 h-2 rounded-full flex-shrink-0"
@@ -661,16 +578,10 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
                     {faixa.nome}
                   </span>
                 </div>
-
                 <div className="flex flex-col items-end">
                   <span className={`text-[11px] font-bold ${ativa ? 'text-purple-300' : 'text-white/50'}`}>
-                    +{faixa.xp} XP
+                    {ativa ? 'Você está aqui' : ''}
                   </span>
-                  {ativa && (
-                    <span className="text-[9px] font-black text-fitcity-energy uppercase mt-0.5">
-                      Você está aqui
-                    </span>
-                  )}
                 </div>
               </div>
             )
@@ -679,16 +590,18 @@ function TabelaFaixas({ onClose, nivelAtual, moedasAtuais }) {
 
         <div className="bg-emerald-600/10 border border-emerald-500/30 rounded-2xl p-4">
           <h3 className="text-xs font-bold text-emerald-300 mb-1.5 flex items-center gap-1.5">
-            💡 Como funciona o cálculo de moedas?
+            💡 Como funciona o cálculo?
           </h3>
           <p className="text-[11px] text-emerald-100/80 leading-relaxed">
-            As moedas são calculadas combinando o tempo total da atividade com as
-            calorias queimadas no treino.
+            As moedas vêm de <b>5 componentes</b>:
           </p>
-          <p className="text-[11px] text-emerald-100/80 leading-relaxed mt-1.5">
-            O sistema reconhece seu esforço real, transformando sua consistência em
-            desenvolvimento visível para a cidade.
-          </p>
+          <ul className="text-[11px] text-emerald-100/80 leading-relaxed mt-1.5 space-y-0.5 list-disc list-inside">
+            <li><b>fitScore</b> — combina intensidade (pace ou kcal/min) + volume</li>
+            <li><b>Calorias</b> — 2 moedas a cada 100 kcal queimadas</li>
+            <li><b>Nível</b> — 0/2/5/10/20 conforme a faixa</li>
+            <li><b>Raridade</b> — 0/1/3/6/12</li>
+            <li><b>Tipo</b> — corrida: +5, musculação: +3, caminhada: +1</li>
+          </ul>
         </div>
 
         <button

@@ -6,10 +6,11 @@ import { Canvas, useThree } from '@react-three/fiber'
 import { ContactShadows, OrbitControls, Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { BuildingModel } from './BuildingModel'
-import { resolverModeloSede, MODELOS, EDIFICIO_PARA_MODELO } from './BuildingModels'
+import { resolverModeloSede } from './BuildingModels'
 import { useFrame } from '@react-three/fiber'
 import { useGraphicsConfig } from './GraphicsConfigContext'
 import { Coins, Building2, Move } from 'lucide-react'
+import { resolverVisualEdificio } from '../data/edificiosVisual'
 
 const HEX_SIZE = 0.6
 
@@ -300,6 +301,12 @@ const HexTile = React.memo(({
 
   const corTopo = building ? SETOR_CONFIG[building.setor]?.cor3 : undefined
 
+  // ─── Resolve visual direto de edificioNivel + setor ───
+  const visual = useMemo(() => {
+    if (!building) return null
+    return resolverVisualEdificio(building.edificioNivel, building.setor)
+  }, [building])
+
   return (
     <group
       ref={groupRef}
@@ -317,11 +324,11 @@ const HexTile = React.memo(({
         scaleIn={scaleIn}
       />
 
-      {building && (
+{building && visual && (
         <>
           <BuildingModel
-            nomeEdificio={building.nome}
-            corFallback={SETOR_CONFIG[building.setor]?.cor4 || '#888888'}
+            nomeEdificio={visual.nome}
+            corFallback={visual.cor4}
             posicaoBase={[0, 0.22, 0]}
             graphicsConfig={config}
           />
@@ -517,6 +524,7 @@ const MoveBanner = ({ onCancel }) => (
 const PainelSelecionado = ({ building, isFullscreen, onMover, onFechar }) => {
   if (!building) return null
   const cfg = SETOR_CONFIG[building.setor] || SETOR_CONFIG.outros
+  const visual = resolverVisualEdificio(building.edificioNivel, building.setor)
 
   return (
     <div style={{
@@ -559,13 +567,14 @@ const PainelSelecionado = ({ building, isFullscreen, onMover, onFechar }) => {
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             textShadow: '0 1px 4px rgba(0,0,0,0.6)',
           }}>
-            {building.nome}
+                  {visual?.nome ?? 'Edifício'}
+
           </div>
           <div style={{
             color: cfg.cor4, fontSize: 10, fontWeight: 700,
             marginTop: 2, letterSpacing: '0.05em', textTransform: 'uppercase',
           }}>
-            {cfg.label}
+      {cfg.label} · Nv {building.edificioNivel}
           </div>
         </div>
       </div>
@@ -714,7 +723,6 @@ export default function MapWorldActivities({
   const controlsRef = useRef()
   const zoomApiRef = useRef({ zoomIn: () => {}, zoomOut: () => {} })
 
-  // Edifício selecionado
   const selectedBuilding = useMemo(() => {
     if (!selectedKey) return null
     const id = posicoes[selectedKey]
@@ -726,7 +734,6 @@ export default function MapWorldActivities({
     antialias: graphicsConfig.antialias,
   }), [graphicsConfig])
 
-  // Limites de zoom
   const tamanhoMapaMundo = HEX_SIZE * 1.73 * (raioMapa + 2.5)
   const minDistance = 4
   const maxDistance = Math.max(45, tamanhoMapaMundo * 2.2)
@@ -734,7 +741,6 @@ export default function MapWorldActivities({
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden', backgroundColor: '#350973' }}>
 
-      {/* Painel do edifício selecionado */}
       {selectedBuilding && !moveMode && (
         <PainelSelecionado
           building={selectedBuilding}
@@ -744,7 +750,6 @@ export default function MapWorldActivities({
         />
       )}
 
-      {/* Banner de modo mover */}
       {moveMode && (
         <MoveBanner onCancel={onCancelarMove} />
       )}

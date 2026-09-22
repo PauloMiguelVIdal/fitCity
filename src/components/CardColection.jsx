@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import {
-  X, Sparkles, Smartphone, Check, Factory, Store, Warehouse, Layers, Package,
+  X, Sparkles, Smartphone, Check, Factory, Store, Warehouse, Layers, Package,Pointer
 } from "lucide-react";
 
 // ============================================================
@@ -1178,7 +1178,7 @@ const CardColection = ({
             >
               {tilt.gyroAtivo ? <Check size={16} /> : <Sparkles size={16} />}
               <span>{tilt.gyroAtivo ? "Experiência Ativa" : "Ativar Experiência Premium"}</span>
-              {!tilt.gyroAtivo && <Smartphone size={16} />}
+              {!tilt.gyroAtivo && <Pointer size={16} />}
             </button>
           )}
         </div>

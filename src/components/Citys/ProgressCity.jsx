@@ -1,12 +1,14 @@
 // src/components/cidades/CidadeProgresso.jsx
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { Building2, Maximize, Minimize, ChevronRight, TrendingUp, Flame, Target, Award } from 'lucide-react'
+import { Building2, Maximize, Minimize, ChevronRight, TrendingUp, Flame, Target } from 'lucide-react'
 import { defineHex, Grid, spiral } from 'honeycomb-grid'
 import MapWorldActivities from '../MapWorldActivities'
 import MapLoadingOverlay from '../MapLoadingOverlay'
 import { TIPOS_ATIVIDADE } from '../../data/tiposAtividade'
-import { calcularMoedas } from '../../utils/atividades'
 import { MODELOS, EDIFICIO_PARA_MODELO } from '../BuildingModels'
+import { resolverVisualEdificio } from '../../data/edificiosVisual'
+import { useFitCityStore } from '../../store/fitCityStore'
+import { raridadePorAtividade } from '../../utils/atividades'
 
 const HEX_SIZE = 0.6
 
@@ -66,97 +68,26 @@ function hexDiff(raioAntigo, raioNovo) {
   return hexCountPorRaio(raioNovo) - hexCountPorRaio(raioAntigo)
 }
 
-// =============================================
-// HELPERS DE MOEDA (para edifício)
-// =============================================
-const getNivelPorMoedas = (moedas) => {
-  if (moedas <= 5) return 1
-  if (moedas <= 10) return 2
-  if (moedas <= 20) return 3
-  if (moedas <= 30) return 4
-  if (moedas <= 50) return 5
-  return 6
-}
-
-const EDIFICIOS_POR_NIVEL = {
-  1: { edificios: [{ nome: 'Plantação De Vegetais', setor: 'agricultura' }] },
-  2: { edificios: [{ nome: 'Granja De Aves', setor: 'agricultura' }] },
-  3: { edificios: [{ nome: 'Fazenda De Vacas', setor: 'agricultura' }] },
-  4: { edificios: [{ nome: 'Criação De Ovinos', setor: 'agricultura' }] },
-  5: { edificios: [{ nome: 'Cooperativa Agrícola', setor: 'agricultura' }] },
-  6: { edificios: [{ nome: 'Centro De Comércio De Plantações', setor: 'agricultura' }] },
-}
-
-const escolherEdificioPorNivel = (nivel) => {
-  const config = EDIFICIOS_POR_NIVEL[nivel] || EDIFICIOS_POR_NIVEL[1]
-  return config.edificios[0]
-}
-
-const edificioEhComposto = (() => {
-  const cache = new Map()
-  return (nomeEdificio) => {
-    if (cache.has(nomeEdificio)) return cache.get(nomeEdificio)
-    const modeloId = EDIFICIO_PARA_MODELO[nomeEdificio]
-    const result = modeloId ? MODELOS[modeloId]?.tipo === 'composto' : false
-    cache.set(nomeEdificio, result)
-    return result
+function raridadePorEdificioNivel(nivel) {
+  const mapa = {
+    1: 'comum',
+    2: 'incomum',
+    3: 'raro',
+    4: 'epico',
+    5: 'lendario',
   }
-})()
-
-const edificioEhCluster = (() => {
-  const cache = new Map()
-  return (nomeEdificio) => {
-    if (cache.has(nomeEdificio)) return cache.get(nomeEdificio)
-    const modeloId = EDIFICIO_PARA_MODELO[nomeEdificio]
-    const result = modeloId ? MODELOS[modeloId]?.tamanho === 7 : false
-    cache.set(nomeEdificio, result)
-    return result
-  }
-})()
+  return mapa[nivel] || 'comum'
+}
+// =============================================
+// HELPERS DE RARIDADE (por nível do edifício)
+// =============================================
 
 // =============================================
-// HELPERS DE PERSISTÊNCIA
+// HELPERS DE DATA
 // =============================================
-const STORAGE_NIVEL_EXP = 'fitcity_nivel_expandido'
-const STORAGE_COINS_DATE = 'fitcity_moedas_data_'
-const STORAGE_PREFIX_COINS = 'fitcity_moedas_'
-
-function lerNivelExpandido() {
-  if (typeof window === 'undefined') return 1
-  try {
-    const v = window.localStorage.getItem(STORAGE_NIVEL_EXP)
-    if (v) {
-      const n = parseInt(v, 10)
-      if (!isNaN(n) && n >= 1 && n <= 10) return n
-    }
-  } catch {}
-  return 1
-}
-
-function salvarNivelExpandido(nivel) {
-  if (typeof window === 'undefined') return
-  try { window.localStorage.setItem(STORAGE_NIVEL_EXP, String(nivel)) } catch {}
-}
-
 function getHoje() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
-}
-
-function jaColetouHoje(edificioId) {
-  if (typeof window === 'undefined') return false
-  try {
-    const dataSalva = window.localStorage.getItem(`${STORAGE_COINS_DATE}${edificioId}`)
-    return dataSalva === getHoje()
-  } catch { return false }
-}
-
-function marcarColetadoHoje(edificioId) {
-  if (typeof window === 'undefined') return
-  try {
-    window.localStorage.setItem(`${STORAGE_COINS_DATE}${edificioId}`, getHoje())
-    window.localStorage.setItem(`${STORAGE_PREFIX_COINS}${edificioId}`, '1')
-  } catch {}
 }
 
 // =============================================
@@ -199,24 +130,25 @@ function MiniCardProgresso({ nome, raridade, quantidade }) {
 // =============================================
 // COMPONENTE PRINCIPAL
 // =============================================
-export default function CityProgress({ atividades = [], dadosCidade, onSelecionarAtividade }) {
-  // ═════════════════════════════════════════════
-  //  LÓGICA — NÍVEL / PORTE / RAIO
-  // ═════════════════════════════════════════════
+export default function CityProgress({ onSelecionarAtividade }) {
+  // ─── Store ───
+  const atividades = useFitCityStore((s) => s.atividades)
+  const cidade = useFitCityStore((s) => s.cidade)
+  const coletasDiarias = useFitCityStore((s) => s.economia.coletasDiarias)
+  const coletarMoeda = useFitCityStore((s) => s.coletarMoeda)
 
-  
-  const atividadesMes = useMemo(() => {
-    const tiposPermitidos = ['corrida', 'musculacao', 'caminhada']
-    return atividades.filter(a => tiposPermitidos.includes(a.tipo)).length
-  }, [atividades])
+  // ─── Temporada ativa ───
+  const temporadaId = cidade.temporadaAtualId
+  const temporada = temporadaId ? cidade.temporadas[temporadaId] : null
+  const edificiosAtivos = temporada?.edificiosAtivos || {}
 
+  // ─── Nível / Porte / Raio ───
+  const atividadesMes = cidade.atividadesMes
   const nivelAtual = useMemo(() => calcularNivel(atividadesMes), [atividadesMes])
   const proximo = useMemo(() => proximoNivel(atividadesMes), [atividadesMes])
   const ultimoNivel = !proximo
 
-  const [nivelExpandido, setNivelExpandido] = useState(() => lerNivelExpandido())
-
-  // Nível que define o mapa (não sobe sozinho — precisa clicar em "Expandir")
+  const nivelExpandido = cidade.nivelExpandido || 1
   const nivelParaMapa = TABELA_NIVEIS[nivelExpandido - 1] || TABELA_NIVEIS[0]
   const porte = nivelParaMapa.porte
   const raioMapa = nivelParaMapa.raio
@@ -235,33 +167,13 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
     : 100
 
   // ═════════════════════════════════════════════
-  //  LÓGICA — EDIFÍCIOS ATIVOS
+  //  EDIFÍCIOS — vêm da store
   // ═════════════════════════════════════════════
-  const edificiosAtivos = useMemo(() => {
-    const tiposPermitidos = ['corrida', 'musculacao', 'caminhada']
-    const atividadesFiltradas = atividades.filter(a => tiposPermitidos.includes(a.tipo))
+  const edificios = useMemo(() => {
+    return Object.values(edificiosAtivos)
+  }, [edificiosAtivos])
 
-    return atividadesFiltradas.map((atividade, idx) => {
-      const moedas = calcularMoedas(atividade)
-      const nivelMoeda = getNivelPorMoedas(moedas)
-      const edificio = escolherEdificioPorNivel(nivelMoeda)
-
-      return {
-        id: atividade.id ?? `atividade-${idx}`,
-        nome: edificio.nome,
-        setor: edificio.setor,
-        atividade,
-        moedas,
-        nivel: nivelMoeda,
-        ehCluster: edificioEhCluster(edificio.nome),
-        ehComposto: edificioEhComposto(edificio.nome),
-      }
-    })
-  }, [atividades])
-
-  // ═════════════════════════════════════════════
-  //  LÓGICA — HEX GRID
-  // ═════════════════════════════════════════════
+  // ─── HEX GRID ───
   const hexGrid = useMemo(() => {
     const Tile = defineHex({ dimensions: HEX_SIZE, orientation: 'pointy' })
     return Array.from(new Grid(Tile, spiral({ center: [0, 0], radius: raioMapa })))
@@ -275,100 +187,34 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
 
   const edificioPorId = useMemo(() => {
     const map = new Map()
-    edificiosAtivos.forEach(e => map.set(e.id, e))
+    edificios.forEach(e => map.set(e.id, e))
     return map
-  }, [edificiosAtivos])
+  }, [edificios])
 
-  // ═════════════════════════════════════════════
-  //  LÓGICA — POSICIONAMENTO
-  // ═════════════════════════════════════════════
-  const [posicoes, setPosicoes] = useState({})
-
-  useEffect(() => {
-    const gridKeys = new Set(hexGrid.map(h => `${h.q},${h.r}`))
-
-    const posOcupadas = new Set(['0,0'])
-    const novasPosicoes = {}
-
-    const idsAtivos = new Set(edificiosAtivos.map(e => e.id))
-    Object.entries(posicoes).forEach(([key, id]) => {
-      if (key === '0,0') return
-
-      if (idsAtivos.has(id)) {
-        novasPosicoes[key] = id
-        posOcupadas.add(key)
-        const ed = edificioPorId.get(id)
-        if (ed?.ehCluster) {
-          const [q, r] = key.split(',').map(Number)
-          vizinhosDeHex(q, r).forEach(vk => {
-            if (vk !== '0,0') posOcupadas.add(vk)
-          })
-        }
-      }
+  // ─── POSICIONAMENTO ───
+  const posicoes = useMemo(() => {
+    const pos = {}
+    edificios.forEach(ed => {
+      if (ed.hexKey) pos[ed.hexKey] = ed.id
     })
+    return pos
+  }, [edificios])
 
-    const keys = hexGrid.map(h => `${h.q},${h.r}`)
-      .sort((a, b) => {
-        const [aq, ar] = a.split(',').map(Number)
-        const [bq, br] = b.split(',').map(Number)
-        return (aq*aq + ar*ar) - (bq*bq + br*br)
-      })
-
-    const proximoLivre = (predicado = null) => {
-      for (const k of keys) {
-        if (k === '0,0') continue
-        if (posOcupadas.has(k)) continue
-        if (predicado && !predicado(k)) continue
-        return k
-      }
-      return null
-    }
-
-    const idsJaAlocados = new Set(Object.values(novasPosicoes))
-    const clusters = edificiosAtivos.filter(ed => ed.ehCluster && !idsJaAlocados.has(ed.id))
-    const simples = edificiosAtivos.filter(ed => !ed.ehCluster && !idsJaAlocados.has(ed.id))
-
-    clusters.forEach(ed => {
-      const central = proximoLivre(k => {
-        const [cq, cr] = k.split(',').map(Number)
-        return vizinhosDeHex(cq, cr).every(vk => {
-          if (vk === '0,0') return false
-          return !posOcupadas.has(vk) && gridKeys.has(vk)
-        })
-      })
-      if (central) {
-        const [cq, cr] = central.split(',').map(Number)
-        novasPosicoes[central] = ed.id
-        posOcupadas.add(central)
-        vizinhosDeHex(cq, cr).forEach(vk => {
-          if (vk !== '0,0') posOcupadas.add(vk)
-        })
-      }
-    })
-
-    simples.forEach(ed => {
-      const pos = proximoLivre()
-      if (pos) {
-        novasPosicoes[pos] = ed.id
-        posOcupadas.add(pos)
-      }
-    })
-
-    setPosicoes(novasPosicoes)
-  }, [edificiosAtivos, hexGrid, edificioPorId])
-
-  // ═════════════════════════════════════════════
-  //  LÓGICA — SATÉLITES DOS CLUSTERS
-  // ═════════════════════════════════════════════
+  // ─── SATÉLITES ───
   const satelites = useMemo(() => {
     const mapa = {}
     Object.entries(posicoes).forEach(([key, id]) => {
       const ed = edificioPorId.get(id)
-      if (!ed?.ehCluster) return
+      if (!ed) return
 
-      const modeloId = EDIFICIO_PARA_MODELO[ed.nome]
+      const visual = resolverVisualEdificio(ed.edificioNivel, ed.setor)
+      if (!visual?.nome) return
+
+      const modeloId = EDIFICIO_PARA_MODELO[visual.nome]
       const modeloDef = modeloId ? MODELOS[modeloId] : null
       const defSats = modeloDef?.satelites || []
+
+      if (!modeloDef?.tamanho || modeloDef.tamanho !== 7) return
 
       const [q, r] = key.split(',').map(Number)
       vizinhosDeHex(q, r).forEach((vk, i) => {
@@ -386,78 +232,32 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
     return mapa
   }, [posicoes, edificioPorId])
 
-  // ═════════════════════════════════════════════
-  //  LÓGICA — TILES PARA RENDERIZAR
-  // ═════════════════════════════════════════════
+  // ─── TILES ───
   const tilesToRender = useMemo(() => {
     return hexGrid
       .map(h => ({ hex: h, key: `${h.q},${h.r}` }))
       .filter(({ key }) => key !== '0,0' && !satelites[key])
   }, [hexGrid, satelites])
 
-  // ═════════════════════════════════════════════
-  //  LÓGICA — SELEÇÃO / MOVIMENTO / HOVER
-  // ═════════════════════════════════════════════
+  // ─── Seleção / Hover / Move ───
   const [selectedKey, setSelectedKey] = useState(null)
   const [moveMode, setMoveMode] = useState(false)
   const [hoveredKey, setHoveredKey] = useState(null)
 
-  const destinoEhValido = useCallback((destKey) => {
-    if (!selectedKey) return false
-    if (destKey === '0,0') return false
-    if (destKey === selectedKey) return false
-    if (posicoes[destKey]) return false
-    if (satelites[destKey]) return false
-
-    const edSendo = edificioPorId.get(posicoes[selectedKey])
-    if (!edSendo) return false
-
-    if (edSendo.ehCluster) {
-      const gridKeys = new Set(hexGrid.map(h => `${h.q},${h.r}`))
-      const ocupadasSemEle = new Set(['0,0'])
-
-      Object.entries(posicoes).forEach(([k, id]) => {
-        if (k === selectedKey) return
-        ocupadasSemEle.add(k)
-        const ed = edificioPorId.get(id)
-        if (ed?.ehCluster) {
-          const [q, r] = k.split(',').map(Number)
-          vizinhosDeHex(q, r).forEach(vk => ocupadasSemEle.add(vk))
-        }
-      })
-
-      Object.keys(satelites).forEach(k => {
-        if (k !== selectedKey) ocupadasSemEle.add(k)
-      })
-
-      const [dq, dr] = destKey.split(',').map(Number)
-      return vizinhosDeHex(dq, dr).every(
-        vk => !ocupadasSemEle.has(vk) && gridKeys.has(vk)
-      )
-    }
-
-    return true
-  }, [selectedKey, posicoes, satelites, edificioPorId, hexGrid])
-
   const moverEdificio = useCallback((destKey) => {
-    if (!destinoEhValido(destKey)) return false
+    if (!selectedKey) return
+    if (destKey === '0,0') return
+    if (posicoes[destKey]) return
+    if (satelites[destKey]) return
 
-    setPosicoes(prev => {
-      const copy = { ...prev }
-      copy[destKey] = copy[selectedKey]
-      delete copy[selectedKey]
-      return copy
-    })
-
+    const edId = posicoes[selectedKey]
+    if (edId) {
+      useFitCityStore.getState().moverEdificioProgresso(edId, destKey)
+    }
     setSelectedKey(destKey)
     setMoveMode(false)
     setHoveredKey(null)
-    return true
-  }, [selectedKey, destinoEhValido])
-
-
-  const [isFullscreen, setIsFullscreen] = useState(false)
-
+  }, [selectedKey, posicoes, satelites])
 
   const handleHexClick = useCallback((hex) => {
     const key = `${hex.q},${hex.r}`
@@ -473,19 +273,22 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
       return
     }
     setSelectedKey(prev => (prev === key ? null : key))
+
     const edificio = edificioPorId.get(edId)
-    if (edificio?.atividade) {
-      onSelecionarAtividade?.(edificio.atividade)
+    if (edificio) {
+      const atividade = atividades.find(a => a.id === edificio.atividadeOrigem)
+      if (atividade) onSelecionarAtividade?.(atividade)
     }
-  }, [moveMode, posicoes, edificioPorId, onSelecionarAtividade, moverEdificio])
+  }, [moveMode, posicoes, edificioPorId, atividades, onSelecionarAtividade, moverEdificio])
 
   const handleHover = useCallback((key, isOver) => {
     setHoveredKey(isOver ? key : null)
   }, [])
 
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
   const ativarMoveMode = useCallback(() => {
-    if (!isFullscreen) return
-    if (!selectedKey) return
+    if (!isFullscreen || !selectedKey) return
     setMoveMode(true)
   }, [isFullscreen, selectedKey])
 
@@ -499,16 +302,17 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
     setMoveMode(false)
   }, [])
 
-  // ═════════════════════════════════════════════
-  //  LÓGICA — COLETA DE MOEDAS
-  // ═════════════════════════════════════════════
+  // ─── Coleta de Moeda ───
   const handleColetarMoeda = useCallback((edificioId) => {
-    marcarColetadoHoje(edificioId)
-  }, [])
+    coletarMoeda(edificioId)
+  }, [coletarMoeda])
 
-  // ═════════════════════════════════════════════
-  //  LÓGICA — EXPANSÃO DO MUNDO
-  // ═════════════════════════════════════════════
+  const jaColetou = useCallback((edificioId) => {
+    const hoje = getHoje()
+    return coletasDiarias[edificioId] === hoje
+  }, [coletasDiarias])
+
+  // ─── Expansão ───
   const [expandindo, setExpandindo] = useState(false)
 
   const raioAnterior = useMemo(() => {
@@ -528,19 +332,12 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
 
   const handleExpandirMundo = useCallback(() => {
     if (!precisaExpandir || expandindo) return
-
     setExpandindo(true)
-
-    const novoNivel = nivelAtual.nivel
-    setNivelExpandido(novoNivel)
-    salvarNivelExpandido(novoNivel)
-
+    useFitCityStore.getState().expandirMundo()
     setTimeout(() => setExpandindo(false), 900)
-  }, [precisaExpandir, expandindo, nivelAtual.nivel])
+  }, [precisaExpandir, expandindo])
 
-  // ═════════════════════════════════════════════
-  //  LÓGICA — FULLSCREEN / LOADING
-  // ═════════════════════════════════════════════
+  // ─── Fullscreen / Loading ───
   const mapWrapperRef = useRef(null)
   const [isPortrait, setIsPortrait] = useState(
     typeof window !== 'undefined' ? window.innerHeight > window.innerWidth : true
@@ -553,9 +350,7 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
     setMapTimeoutId(id)
   }, [])
 
-  useEffect(() => {
-    return () => { if (mapTimeoutId) clearTimeout(mapTimeoutId) }
-  }, [mapTimeoutId])
+  useEffect(() => () => { if (mapTimeoutId) clearTimeout(mapTimeoutId) }, [mapTimeoutId])
 
   useEffect(() => {
     const mq = window.matchMedia('(orientation: portrait)')
@@ -589,7 +384,7 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
           try { await screen.orientation.lock('landscape') } catch {}
         }
       } catch (err) {
-        console.error('Não foi possível entrar em tela cheia:', err)
+        console.error('Erro fullscreen:', err)
       }
     } else {
       if (screen.orientation?.unlock) {
@@ -600,55 +395,37 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
   }, [])
 
   // ═════════════════════════════════════════════
-  //  LÓGICA — CARTAS / RARIDADE (para a UI de baixo)
+  //  CARTAS / RARIDADE
   // ═════════════════════════════════════════════
   const cartasDasAtividades = useMemo(() => {
-    const tiposPermitidos = ['corrida', 'musculacao', 'caminhada']
-    const atividadesFiltradas = atividades.filter(a => tiposPermitidos.includes(a.tipo))
-
-    const cartasMap = new Map()
-
-    atividadesFiltradas.forEach(atividade => {
-      const moedas = calcularMoedas(atividade)
-      const nivel = getNivelPorMoedas(moedas)
-
-      const edificiosPorNivel = {
-        1: { nome: 'Plantação De Vegetais', raridade: 'comum' },
-        2: { nome: 'Granja De Aves', raridade: 'incomum' },
-        3: { nome: 'Fazenda De Vacas', raridade: 'raro' },
-        4: { nome: 'Criação De Ovinos', raridade: 'epico' },
-        5: { nome: 'Cooperativa Agrícola', raridade: 'lendario' },
-        6: { nome: 'Centro De Comércio de Plantações', raridade: 'lendario' },
-      }
-
-      const edificio = edificiosPorNivel[nivel] || edificiosPorNivel[1]
-      const chave = edificio.nome
-
-      if (cartasMap.has(chave)) {
-        cartasMap.get(chave).quantidade += 1
+    const mapa = new Map()
+    edificios.forEach(ed => {
+      const visual = resolverVisualEdificio(ed.edificioNivel, ed.setor)
+      if (!visual?.nome) return
+      const chave = visual.nome
+      if (mapa.has(chave)) {
+        mapa.get(chave).quantidade += 1
       } else {
-        cartasMap.set(chave, {
-          nome: edificio.nome,
-          raridade: edificio.raridade,
+        mapa.set(chave, {
+          nome: visual.nome,
+          raridade: raridadePorEdificioNivel(ed.edificioNivel),
           quantidade: 1,
         })
       }
     })
+    return Array.from(mapa.values()).sort((a, b) => b.quantidade - a.quantidade)
+  }, [edificios])
 
-    return Array.from(cartasMap.values()).sort((a, b) => b.quantidade - a.quantidade)
-  }, [atividades])
-
-  const totalEdificios = useMemo(() => {
-    return cartasDasAtividades.reduce((acc, c) => acc + c.quantidade, 0)
-  }, [cartasDasAtividades])
+  const totalEdificios = edificios.length
 
   const porRaridade = useMemo(() => {
     const result = { comum: 0, incomum: 0, raro: 0, epico: 0, lendario: 0 }
-    cartasDasAtividades.forEach(c => {
-      result[c.raridade] = (result[c.raridade] || 0) + c.quantidade
+    edificios.forEach(ed => {
+      const r = raridadePorAtividade(ed.edificioNivel)
+      result[r] = (result[r] || 0) + 1
     })
     return result
-  }, [cartasDasAtividades])
+  }, [edificios])
 
   const kcalTotais = useMemo(() => {
     return atividades.reduce((acc, a) => acc + (a.calorias || 0), 0)
@@ -684,13 +461,11 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
             : undefined
         }
       >
-        {/* 🔥 Mapa como componente PURO de renderização */}
         <MapWorldActivities
           nomeEmpresa="Minha Cidade"
           porte={porte}
           raioMapa={raioMapa}
           dayProgress={0}
-
           posicoes={posicoes}
           satelites={satelites}
           tilesToRender={tilesToRender}
@@ -698,23 +473,20 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
           edificioPorId={edificioPorId}
           chavesAntigas={chavesAntigas}
           expandindo={expandindo}
-
           selectedKey={selectedKey}
           moveMode={moveMode}
           hoveredKey={hoveredKey}
           isFullscreen={isFullscreen}
-
           onHexClick={handleHexClick}
           onHover={handleHover}
           onMover={ativarMoveMode}
           onCancelarMove={cancelarMoveMode}
           onFecharPainel={fecharPainel}
           onColetarMoeda={handleColetarMoeda}
-          jaColetou={jaColetouHoje}
+          jaColetou={jaColetou}
           onMapReady={handleMapReady}
         />
 
-        {/* Loading overlay */}
         <MapLoadingOverlay visible={!mapReady} />
 
         <button
@@ -724,7 +496,7 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
           {isFullscreen ? <Minimize size={16} className="text-white" /> : <Maximize size={16} className="text-white" />}
         </button>
 
-        {/* 🔥 Painel de progresso do nível (dentro do wrapper do mapa) */}
+        {/* Painel de progresso do nível */}
         <div style={{
           position: 'absolute',
           bottom: 10,
@@ -810,7 +582,7 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
           )}
         </div>
 
-        {/* 🔥 Botão "Expandir Mundo" */}
+        {/* Botão "Expandir Mundo" */}
         {precisaExpandir && (
           <div style={{
             position: 'absolute',
@@ -825,7 +597,6 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
             fontFamily: "'Rajdhani','Segoe UI',sans-serif",
             pointerEvents: 'auto',
           }}>
-            {/* Banner de nível alcançado */}
             <div style={{
               background: 'linear-gradient(135deg, rgba(255,215,0,0.95), rgba(242,116,5,0.95))',
               border: '2px solid #FFD966',
@@ -1014,15 +785,15 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
           </span>
         </div>
 
-        {dadosCidade?.ultimasAtividades?.length > 0 ? (
+        {atividades.length > 0 ? (
           <div className="space-y-2">
-            {dadosCidade.ultimasAtividades.slice(0, 5).map((atividade, index) => {
+            {atividades.slice(-5).reverse().map((atividade) => {
               const Icon = TIPOS_ATIVIDADE[atividade.tipo]?.Icon
               const cor = TIPOS_ATIVIDADE[atividade.tipo]?.cor || '#F27405'
 
               return (
                 <button
-                  key={index}
+                  key={atividade.id}
                   className="w-full flex items-center justify-between p-2.5 rounded-xl bg-white/5 hover:bg-white/10 transition cursor-pointer text-left"
                   onClick={() => onSelecionarAtividade?.(atividade)}
                 >
@@ -1039,14 +810,14 @@ export default function CityProgress({ atividades = [], dadosCidade, onSeleciona
                       </p>
                       <p className="text-[10px] text-white/40 truncate">
                         {atividade.distancia ? `${atividade.distancia} km · ` : ''}
-                        {atividade.tempo ? `${atividade.tempo} · ` : ''}
-                        {atividade.calorias || atividade.kcal} kcal
+                        {atividade.duracao ? `${atividade.duracao} min · ` : ''}
+                        {atividade.calorias} kcal
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
                     <span className="text-xs font-black text-fitcity-energy">
-                      +{atividade.pontos || atividade.moedas || 0}
+                      +{atividade.moedas || 0}
                     </span>
                     <ChevronRight size={14} className="text-white/30" />
                   </div>

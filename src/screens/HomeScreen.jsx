@@ -16,7 +16,9 @@ import {
   CircleChevronRight,
   Activity,
   Gift,
-  Check,Trophy
+  Check,
+  Trophy,
+  Bell
 } from 'lucide-react'
 
 import MapWorldFitCity from '../components/MapWorldCity'
@@ -41,16 +43,16 @@ const STORAGE_KEY_ATIVIDADES = 'fitcity:atividades'
 // TABELA DE NÍVEIS (mesma usada no ActivitiesScreen)
 // ============================================================
 const TABELA_NIVEIS = [
-  { nivel: 1,  porte: 'Micro Empresa',             raio: 3, atvMin: 1  },
-  { nivel: 2,  porte: 'Sociedade Limitada',        raio: 3, atvMin: 3  },
-  { nivel: 3,  porte: 'Empresa Regional',          raio: 3, atvMin: 7  },
-  { nivel: 4,  porte: 'Companhia Local',           raio: 4, atvMin: 12 },
-  { nivel: 5,  porte: 'Empresa Estadual',          raio: 5, atvMin: 16 },
-  { nivel: 6,  porte: 'Companhia Nacional',        raio: 6, atvMin: 21 },
-  { nivel: 7,  porte: 'Corporação Multissetorial', raio: 6, atvMin: 27 },
-  { nivel: 8,  porte: 'Grupo Empresarial',         raio: 7, atvMin: 34 },
-  { nivel: 9,  porte: 'Conglomerado Global',       raio: 7, atvMin: 42 },
-  { nivel: 10, porte: 'Mega Holding',              raio: 8, atvMin: 50 },
+  { nivel: 1, porte: 'Micro Empresa', raio: 3, atvMin: 1 },
+  { nivel: 2, porte: 'Sociedade Limitada', raio: 3, atvMin: 3 },
+  { nivel: 3, porte: 'Empresa Regional', raio: 3, atvMin: 7 },
+  { nivel: 4, porte: 'Companhia Local', raio: 4, atvMin: 12 },
+  { nivel: 5, porte: 'Empresa Estadual', raio: 5, atvMin: 16 },
+  { nivel: 6, porte: 'Companhia Nacional', raio: 6, atvMin: 21 },
+  { nivel: 7, porte: 'Corporação Multissetorial', raio: 6, atvMin: 27 },
+  { nivel: 8, porte: 'Grupo Empresarial', raio: 7, atvMin: 34 },
+  { nivel: 9, porte: 'Conglomerado Global', raio: 7, atvMin: 42 },
+  { nivel: 10, porte: 'Mega Holding', raio: 8, atvMin: 50 },
 ]
 
 function calcularNivel(atividadesMes) {
@@ -410,6 +412,32 @@ export default function HomeScreen({
       {/* ======================================================
           HEADER — CIDADE CONQUISTADA
           ====================================================== */}
+
+      <div
+
+        className="relative flex items-center gap-2 sm:gap-3 w-full rounded-2xl p-3 sm:p-4 text-left overflow-hidden transition-all duration-300 group z-10 border border-white/10 shadow-[0_10px_40px_rgba(100,17,217,0.45)]"
+      >
+        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+
+        <div className="relative shrink-0">
+          <div className="absolute inset-0 bg-orange-500 rounded-xl blur-md opacity-60 animate-pulse" />
+          <div className="relative bg-gradient-to-br from-[#6411D9] to-[#331B8C] rounded-xl p-2 sm:p-2.5 shadow-[0_4px_20px_rgba(234,88,12,0.6)]">
+            <Bell size={18} className="relative text-white sm:w-5 sm:h-5" />
+          </div>
+        </div>
+
+        <div className="relative flex-1 min-w-0">
+          <p className="font-semibold text-white text-sm sm:text-sm truncate">
+            Lembresse de se movimentar hoje
+          </p>
+
+        </div>
+
+        {/* <CircleChevronRight
+          size={16}
+          className="relative text-white/70 transition-transform duration-300 group-hover:translate-x-1 shrink-0 sm:w-[18px] sm:h-[18px]"
+        /> */}
+      </div>
       <div className="relative flex items-center justify-between z-10 gap-2 w-full">
         <div className="relative w-full bg-fitcity-surface/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(100,17,217,0.35)] z-10">
           <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-fitcity-accent/30 blur-[80px]" />
@@ -546,27 +574,26 @@ export default function HomeScreen({
           ATIVIDADE SEMANAL — Bloco "à parte" com botão coletável
           ====================================================== */}
       <div
-        className={`relative rounded-3xl p-3 sm:p-4 z-10 overflow-hidden border shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${
-          metaSemanalBatida
+        className={`relative rounded-3xl p-3 sm:p-4 z-10 overflow-hidden border shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${metaSemanalBatida
             ? 'bg-gradient-to-br from-[#F27405]/35 to-[#6411D9]/55 border-[#6411D9]/35'
             : 'bg-[#1E0A3C]/55 border-purple-500/20'
-        }`}
+          }`}
       >
         <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full bg-purple-600/20 blur-[60px] pointer-events-none" />
 
         {/* Header: título + botão de recompensa */}
         <div className="flex items-start justify-between mb-3 sm:mb-4 relative z-10 gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-[0_4px_14px_rgba(242,116,5,0.5)] shrink-0">
-            <Trophy size={14} className="text-white" />
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-[0_4px_14px_rgba(242,116,5,0.5)] shrink-0">
+              <Trophy size={14} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black leading-tight">Meta da Semana</p>
+              <p className="text-[9px] text-white/50 truncate">
+                {progressoSemanal}/{metaSemanal} atividades
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-xs font-black leading-tight">Meta da Semana</p>
-            <p className="text-[9px] text-white/50 truncate">
-              {progressoSemanal}/{metaSemanal} atividades
-            </p>
-          </div>
-        </div>
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
 
 
@@ -575,19 +602,18 @@ export default function HomeScreen({
               type="button"
               disabled={!metaSemanalBatida || recompensaJaColetada}
               onClick={handleColetarRecompensa}
-              className={`rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5 transition-all ${
-                recompensaJaColetada
+              className={`rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5 transition-all ${recompensaJaColetada
                   ? 'bg-[#6411D9] border border-[#6411D9]/40 cursor-default'
                   : metaSemanalBatida
-                  ? 'bg-gradient-to-br from-[#F27405] to-[#6411D9] shadow-[0_4px_15px_rgba(242,116,5,0.55)] hover:scale-105 active:scale-95 cursor-pointer animate-pulse'
-                  : 'bg-gradient-to-br from-orange-500 to-orange-600 opacity-60 cursor-not-allowed'
-              }`}
+                    ? 'bg-gradient-to-br from-[#F27405] to-[#6411D9] shadow-[0_4px_15px_rgba(242,116,5,0.55)] hover:scale-105 active:scale-95 cursor-pointer animate-pulse'
+                    : 'bg-gradient-to-br from-orange-500 to-orange-600 opacity-60 cursor-not-allowed'
+                }`}
               title={
                 recompensaJaColetada
                   ? 'Recompensa já coletada esta semana'
                   : metaSemanalBatida
-                  ? `Coletar +${RECOMPENSA_META_SEMANAL} moedas`
-                  : `Bata ${metaSemanal} treinos para liberar`
+                    ? `Coletar +${RECOMPENSA_META_SEMANAL} moedas`
+                    : `Bata ${metaSemanal} treinos para liberar`
               }
             >
               {recompensaJaColetada ? (
@@ -613,11 +639,10 @@ export default function HomeScreen({
         {/* Barra de progresso */}
         <div className="w-full h-1.5 bg-black/50 rounded-full mb-3 sm:mb-4 overflow-hidden relative z-10 border border-white/10">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${
-              metaSemanalBatida
-                ?'bg-gradient-to-r from-[#6411D9] via-[#F27405] to-orange-600 shadow-[0_0_10px_rgba(100,17,217,0.7)]'
+            className={`h-full rounded-full transition-all duration-500 ${metaSemanalBatida
+                ? 'bg-gradient-to-r from-[#6411D9] via-[#F27405] to-orange-600 shadow-[0_0_10px_rgba(100,17,217,0.7)]'
                 : 'bg-gradient-to-r from-[#350973] to-[#F27405] shadow-[0_0_8px_rgba(242,116,5,0.5)]'
-            }`}
+              }`}
             style={{ width: `${(progressoSemanal / metaSemanal) * 100}%` }}
           />
         </div>
@@ -628,11 +653,10 @@ export default function HomeScreen({
             <div key={index} className="flex flex-col items-center gap-1 flex-1 min-w-0">
               <div className="relative">
                 <div
-                  className={`w-7 h-7 xs:w-8 xs:h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-[10px] xs:text-xs sm:text-sm transition-all ${
-                    item.concluido
+                  className={`w-7 h-7 xs:w-8 xs:h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-[10px] xs:text-xs sm:text-sm transition-all ${item.concluido
                       ? 'bg-gradient-to-br from-[#F27405] to-orange-600 text-white shadow-[0_4px_15px_rgba(242,116,5,0.5)]'
                       : 'bg-purple-900/40 text-purple-300/50 border border-purple-500/20'
-                  }`}
+                    }`}
                 >
                   {item.dia}
                 </div>
@@ -653,9 +677,8 @@ export default function HomeScreen({
                   className={`sm:w-[10px] sm:h-[10px] ${item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'}`}
                 />
                 <span
-                  className={`text-[8px] xs:text-[9px] sm:text-[10px] font-bold ${
-                    item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'
-                  }`}
+                  className={`text-[8px] xs:text-[9px] sm:text-[10px] font-bold ${item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'
+                    }`}
                 >
                   {item.concluido ? `+${item.xp}` : '-'}
                 </span>
