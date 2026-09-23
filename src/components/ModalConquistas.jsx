@@ -499,8 +499,8 @@ export default function ModalConquistas({ onClose }) {
                         {/* Badge de status */}
                         {c.desbloqueada && (
                           <div className="shrink-0">
-                            <div className="bg-emerald-500/20 border border-emerald-400/40 rounded-full p-1.5">
-                              <Check size={12} className="text-emerald-400" strokeWidth={3} />
+                            <div className="bg-orange-500/20 border border-orange-400/40 rounded-full p-1.5">
+                              <Check size={12} className="text-orange-400" strokeWidth={3} />
                             </div>
                           </div>
                         )}

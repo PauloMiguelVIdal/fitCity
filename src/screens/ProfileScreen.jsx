@@ -16,7 +16,7 @@ import {
   Lock,
   PersonStanding,
   Newspaper,
-  Wrench,
+  Award ,
 } from 'lucide-react'
 import { useFitCityStore } from '../store/fitCityStore'
 import ModalSocial from '../components/ModalSocial'
@@ -78,11 +78,11 @@ const RARIDADE_COR = {
 const SETORES = ['agricultura', 'tecnologia', 'comercio', 'industria', 'imobiliario', 'energia']
 
 const CONQUISTAS_CONFIG = [
-  { id: 'km_10',     label: '10km',     sub: '(Corridos)', icone: Trophy },
-  { id: 'tempo_5k',  label: '5k',       sub: '(Tempo)',    icone: Trophy },
-  { id: 'dias_100',  label: '100 Dias', sub: '(Ativos)',   icone: Trophy },
-  { id: 'maratona',  label: 'Maratona', sub: '(Meta)',     icone: Trophy },
-  { id: 'moedas_1k', label: '1.000',    sub: '(Moedas)',   icone: Trophy },
+  { id: 'km_10', label: '10km', sub: '(Corridos)', icone: Trophy },
+  { id: 'tempo_5k', label: '5k', sub: '(Tempo)', icone: Trophy },
+  { id: 'dias_100', label: '100 Dias', sub: '(Ativos)', icone: Trophy },
+  { id: 'maratona', label: 'Maratona', sub: '(Meta)', icone: Trophy },
+  { id: 'moedas_1k', label: '1.000', sub: '(Moedas)', icone: Trophy },
 ]
 
 // ============================================================
@@ -122,9 +122,9 @@ export default function ProfileScreen() {
     const diasAtivos = contarDiasAtivos(atividades)
 
     return [
-      { label: 'Total',       valor: `${totalKcal.toLocaleString('pt-BR')} kcal`, Icon: Flame,    sigla: 'kcal'  },
-      { label: 'Tempo ativo', valor: formatarTempo(totalDuracao),                 Icon: Clock,    sigla: 'tempo' },
-      { label: 'Distância',   valor: `${totalDistancia.toFixed(1)} km`,           Icon: MapPin,   sigla: 'km'    },
+      { label: 'Total', valor: `${totalKcal.toLocaleString('pt-BR')} kcal`, Icon: Flame, sigla: 'kcal' },
+      { label: 'Tempo ativo', valor: formatarTempo(totalDuracao), Icon: Clock, sigla: 'tempo' },
+      { label: 'Distância', valor: `${totalDistancia.toFixed(1)} km`, Icon: MapPin, sigla: 'km' },
       // { label: 'Dias ativos', valor: `${diasAtivos}`,                             Icon: Calendar, sigla: 'dias'  },
     ]
   }, [atividades])
@@ -205,15 +205,15 @@ export default function ProfileScreen() {
 
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Toggle Modo de Configuração */}
-      {/* Botão Atleta + Editar */}
-      <button
-        onClick={() => setModalAjustar(true)}
-        className="relative self-center flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 transition-colors -mt-1"
-      >
-        <PersonStanding size={12} className="text-fitcity-energy" />
-        <span className="text-[11px] font-medium text-white/75">{usuario.atleta}</span>
-        <Pencil size={10} className="text-fitcity-energy" />
-      </button>
+          {/* Botão Atleta + Editar */}
+          <button
+            onClick={() => setModalAjustar(true)}
+            className="relative self-center flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 transition-colors -mt-1"
+          >
+            <PersonStanding size={12} className="text-fitcity-energy" />
+            <span className="text-[11px] font-medium text-white/75">{usuario.atleta}</span>
+            <Pencil size={10} className="text-fitcity-energy" />
+          </button>
 
           {/* Settings */}
           <button className="bg-white/10 backdrop-blur-xl border border-white/10 rounded-full p-2 shadow-md">
@@ -269,7 +269,7 @@ export default function ProfileScreen() {
       {/* MINHA COLEÇÃO */}
       {/* ═══════════════════════════════════════════ */}
       <button
-        onClick={() => {}}
+        onClick={() => { }}
         className="relative w-full bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-left shadow-[0_10px_30px_rgba(100,17,217,0.2)] overflow-hidden transition-all hover:bg-white/[0.06] active:scale-[0.99]"
       >
         <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-purple-500/15 blur-[60px]" />
@@ -349,8 +349,8 @@ export default function ProfileScreen() {
 
       {/* ═══════════════════════════════════════════ */}
       {/* SOCIAL */}
-      {/* ═══════════════════════════════════════════ */}
-      <div className="flex flex-col gap-3 mt-1">
+
+      <div className="flex flex-col gap-3 mt-1 relative w-full bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-left shadow-[0_10px_30px_rgba(100,17,217,0.2)] overflow-hidden ">
         <p className="text-[11px] font-bold text-white/50 uppercase tracking-wider">
           SOCIAL
         </p>
@@ -378,7 +378,7 @@ export default function ProfileScreen() {
             {amigos.slice(0, 10).map((amigo) => (
               <button
                 key={amigo.id}
-                onClick={() => {}}
+                onClick={() => { }}
                 className="flex flex-col items-center gap-1 w-[58px] shrink-0"
               >
                 <div className="relative">
@@ -427,7 +427,7 @@ export default function ProfileScreen() {
         </button>
 
         <button
-          onClick={() => {}}
+          onClick={() => { }}
           className="w-full bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-3.5 flex items-center gap-3 hover:bg-white/[0.07] transition-colors text-left"
         >
           <div className="bg-fitcity-energy/15 rounded-lg p-2 shrink-0">
@@ -442,49 +442,59 @@ export default function ProfileScreen() {
           <ChevronRight size={16} className="text-white/40 shrink-0" />
         </button>
       </div>
-      <div className="flex items-center justify-between mt-1">
-        <p className="font-bold text-base">Conquistas</p>
-        <button
-          onClick={() => setModalConquistas(true)}
-          className="text-white/40 flex items-center gap-1 hover:text-white/70 transition-colors"
-        >
-          <span className="text-[10px]">Ver todas</span>
-          <ChevronRight size={18} />
-        </button>
-      </div>
 
-      <div className="-mx-4 px-4 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-3 min-w-max pb-1">
-          {conquistas.map((c) => (
-            <div key={c.id} className="flex flex-col items-center gap-1.5 w-[68px]">
-              <div
-                className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${
-                  c.desbloqueada
+      <button
+         onClick={() => setModalConquistas(true)}
+        className="relative w-full bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-left shadow-[0_10px_30px_rgba(100,17,217,0.2)] overflow-hidden transition-all hover:bg-white/[0.06] active:scale-[0.99]"
+      >
+        <div className="flex items-center justify-between mt-1">
+
+          <div className="relative flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="bg-purple-500/20 rounded-lg p-1.5">
+                <Award size={13} className="text-purple-300" />
+              </div>
+              <p className="font-bold text-sm">Conquistas</p>
+            </div>
+
+          </div>
+          <button
+           
+            className="text-white/40 flex items-center gap-1 hover:text-white/70 transition-colors"
+          >
+            <span className="text-[10px]">Ver todas</span>
+            <ChevronRight size={18} />
+          </button>
+        </div>
+        <div className="-mx-4 px-4 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-3 min-w-max pb-1">
+            {conquistas.map((c) => (
+              <div key={c.id} className="flex flex-col items-center gap-1.5 w-[68px]">
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${c.desbloqueada
                     ? 'bg-gradient-to-br from-[#F27405] to-[#D95D00] shadow-[0_6px_20px_rgba(242,116,5,0.45)]'
                     : 'bg-white/5 border border-white/10'
-                }`}
-              >
-                <Trophy
-                  size={26}
-                  className={c.desbloqueada ? 'text-white' : 'text-white/20'}
-                  strokeWidth={2}
-                />
+                    }`}
+                >
+                  <Trophy
+                    size={26}
+                    className={c.desbloqueada ? 'text-white' : 'text-white/20'}
+                    strokeWidth={2}
+                  />
+                </div>
+                <p className={`text-[11px] font-bold text-center leading-tight ${c.desbloqueada ? 'text-white' : 'text-white/40'
+                  }`}>
+                  {c.label}
+                </p>
+                <p className={`text-[9px] text-center leading-tight -mt-1 ${c.desbloqueada ? 'text-white/60' : 'text-white/30'
+                  }`}>
+                  {c.sub}
+                </p>
               </div>
-              <p className={`text-[11px] font-bold text-center leading-tight ${
-                c.desbloqueada ? 'text-white' : 'text-white/40'
-              }`}>
-                {c.label}
-              </p>
-              <p className={`text-[9px] text-center leading-tight -mt-1 ${
-                c.desbloqueada ? 'text-white/60' : 'text-white/30'
-              }`}>
-                {c.sub}
-              </p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-
+      </button>
       {/* ═══════════════════════════════════════════ */}
       {/* MODAIS */}
       {/* ═══════════════════════════════════════════ */}

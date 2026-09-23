@@ -346,7 +346,7 @@ export default function HomeScreen({
 
   const semana = useMemo(() => {
     const labels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
-    const nomes = ['Hoje', 'Ontem', 'Anteontem', 'Qui', 'Sex', 'Sáb', 'Dom']
+    const nomes = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
     const hoje = new Date()
     const diaSemana = hoje.getDay()

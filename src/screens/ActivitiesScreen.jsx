@@ -11,9 +11,15 @@ import {
   FILTRO_POR_PERIODO,
   resumoDoPeriodo,
   calcularMoedas,
+  edificioNivelPorAtividade,
+  setorPorAtividade,
+  fitScorePorAtividade,
 } from '../utils/atividades'
 import MapWorldActivities from '../components/MapWorldActivities'
+import MapLoadingOverlay from '../components/MapLoadingOverlay'
 import { MODELOS, EDIFICIO_PARA_MODELO } from '../components/BuildingModels'
+import { resolverVisualEdificio } from '../data/edificiosVisual'
+import { useFitCityStore } from '../store/fitCityStore'
 
 const META_DIARIA_KCAL = 600
 const META_SEMANAL_ATIVIDADES = 5
@@ -26,51 +32,6 @@ const STORAGE_KEY_META_SEMANAL = 'fitcity:meta-semanal-coletada'
 // =============================================
 const HEX_DIRECTIONS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]]
 const vizinhosDeHex = (q, r) => HEX_DIRECTIONS.map(([dq, dr]) => `${q + dq},${r + dr}`)
-
-const getNivelPorMoedas = (moedas) => {
-  if (moedas <= 5) return 1
-  if (moedas <= 10) return 2
-  if (moedas <= 20) return 3
-  if (moedas <= 30) return 4
-  if (moedas <= 50) return 5
-  return 6
-}
-
-const EDIFICIOS_POR_NIVEL = {
-  1: { edificios: [{ nome: 'Plantação De Vegetais', setor: 'agricultura' }] },
-  2: { edificios: [{ nome: 'Granja De Aves', setor: 'agricultura' }] },
-  3: { edificios: [{ nome: 'Fazenda De Vacas', setor: 'agricultura' }] },
-  4: { edificios: [{ nome: 'Criação De Ovinos', setor: 'agricultura' }] },
-  5: { edificios: [{ nome: 'Cooperativa Agrícola', setor: 'agricultura' }] },
-  6: { edificios: [{ nome: 'Centro De Comércio De Plantações', setor: 'agricultura' }] },
-}
-
-const escolherEdificioPorNivel = (nivel) => {
-  const config = EDIFICIOS_POR_NIVEL[nivel] || EDIFICIOS_POR_NIVEL[1]
-  return config.edificios[0]
-}
-
-const edificioEhCluster = (() => {
-  const cache = new Map()
-  return (nomeEdificio) => {
-    if (cache.has(nomeEdificio)) return cache.get(nomeEdificio)
-    const modeloId = EDIFICIO_PARA_MODELO[nomeEdificio]
-    const result = modeloId ? MODELOS[modeloId]?.tamanho === 7 : false
-    cache.set(nomeEdificio, result)
-    return result
-  }
-})()
-
-const edificioEhComposto = (() => {
-  const cache = new Map()
-  return (nomeEdificio) => {
-    if (cache.has(nomeEdificio)) return cache.get(nomeEdificio)
-    const modeloId = EDIFICIO_PARA_MODELO[nomeEdificio]
-    const result = modeloId ? MODELOS[modeloId]?.tipo === 'composto' : false
-    cache.set(nomeEdificio, result)
-    return result
-  }
-})()
 
 const TABELA_NIVEIS = [
   { nivel: 1, porte: 'Micro Empresa', raio: 3, atvMin: 1 },
@@ -112,30 +73,44 @@ function getSemanaAtualKey() {
 
 // =============================================
 // MINI MAPA DA CIDADE
+// ─────────────────────────────────────────────
+// 🔥 Corrigido: usa `edificioNivelPorAtividade` (mesma fonte da store)
+//    em vez de `getNivelPorMoedas` (fórmula inventada)
 // =============================================
 function MiniMapaCidade({ atividades }) {
   const atividadesMes = atividades.length
   const nivelAtual = calcularNivel(atividadesMes)
   const raioMapa = nivelAtual.raio
 
-  const edificiosAtivos = useMemo(() => {
+  // ─── Edifícios derivados das atividades (mesma lógica da store) ───
+  const edificios = useMemo(() => {
     const tipos = ['corrida', 'musculacao', 'caminhada']
     return atividades
       .filter(a => tipos.includes(a.tipo))
       .map((atividade, idx) => {
-        const moedas = calcularMoedas(atividade)
-        const nivelMoeda = getNivelPorMoedas(moedas)
-        const edificio = escolherEdificioPorNivel(nivelMoeda)
+        // ✅ FONTE ÚNICA — mesma função que a store usa
+        const edificioNivel = edificioNivelPorAtividade(atividade)
+        const setor = setorPorAtividade(atividade)
+
+        const visual = resolverVisualEdificio(edificioNivel, setor)
+        if (!visual?.nome) return null
+
+        const modeloId = EDIFICIO_PARA_MODELO[visual.nome]
+        const modeloDef = modeloId ? MODELOS[modeloId] : null
+
         return {
           id: atividade.id ?? `atv-${idx}`,
-          nome: edificio.nome,
-          setor: edificio.setor,
-          ehCluster: edificioEhCluster(edificio.nome),
-          ehComposto: edificioEhComposto(edificio.nome),
+          nome: visual.nome,
+          setor,
+          edificioNivel,                     // ← nível correto (1-5)
+          ehCluster: modeloDef?.tamanho === 7,
+          ehComposto: modeloDef?.tipo === 'composto',
         }
       })
+      .filter(Boolean)
   }, [atividades])
 
+  // ─── HEX GRID ───
   const hexGrid = useMemo(() => {
     const Tile = defineHex({ dimensions: HEX_SIZE, orientation: 'pointy' })
     return Array.from(new Grid(Tile, spiral({ center: [0, 0], radius: raioMapa })))
@@ -149,10 +124,11 @@ function MiniMapaCidade({ atividades }) {
 
   const edificioPorId = useMemo(() => {
     const m = new Map()
-    edificiosAtivos.forEach(e => m.set(e.id, e))
+    edificios.forEach(e => m.set(e.id, e))
     return m
-  }, [edificiosAtivos])
+  }, [edificios])
 
+  // ─── POSICIONAMENTO ───
   const posicoes = useMemo(() => {
     const gridKeys = new Set(hexGrid.map(h => `${h.q},${h.r}`))
     const ocupadas = new Set(['0,0'])
@@ -174,7 +150,7 @@ function MiniMapaCidade({ atividades }) {
       return null
     }
 
-    edificiosAtivos.filter(e => e.ehCluster).forEach(ed => {
+    edificios.filter(e => e.ehCluster).forEach(ed => {
       const central = proximoLivre(k => {
         const [cq, cr] = k.split(',').map(Number)
         return vizinhosDeHex(cq, cr).every(vk => {
@@ -190,73 +166,103 @@ function MiniMapaCidade({ atividades }) {
       }
     })
 
-    edificiosAtivos.filter(e => !e.ehCluster).forEach(ed => {
+    edificios.filter(e => !e.ehCluster).forEach(ed => {
       const pos = proximoLivre()
       if (pos) { novas[pos] = ed.id; ocupadas.add(pos) }
     })
 
     return novas
-  }, [edificiosAtivos, hexGrid])
+  }, [edificios, hexGrid])
 
+  // ─── SATÉLITES ───
   const satelites = useMemo(() => {
     const m = {}
     Object.entries(posicoes).forEach(([key, id]) => {
       const ed = edificioPorId.get(id)
-      if (!ed?.ehCluster) return
-      const modeloId = EDIFICIO_PARA_MODELO[ed.nome]
+      if (!ed) return
+
+      const visual = resolverVisualEdificio(ed.edificioNivel, ed.setor)
+      if (!visual?.nome) return
+
+      const modeloId = EDIFICIO_PARA_MODELO[visual.nome]
       const modeloDef = modeloId ? MODELOS[modeloId] : null
+
+      if (!modeloDef?.tamanho || modeloDef.tamanho !== 7) return
+
       const defSats = modeloDef?.satelites || []
       const [q, r] = key.split(',').map(Number)
+
       vizinhosDeHex(q, r).forEach((vk, i) => {
         if (vk === '0,0') return
         if (!posicoes[vk]) {
-          m[vk] = { modeloId: defSats[i]?.modeloId ?? null, edificioDono: ed, corFallback: '#888888' }
+          m[vk] = {
+            corTopo: undefined,
+            corFallback: '#888888',
+            modeloId: defSats[i]?.modeloId ?? null,
+            edificioDono: ed,
+          }
         }
       })
     })
     return m
   }, [posicoes, edificioPorId])
 
-  const tiles = useMemo(
-    () => hexGrid.map(h => ({ hex: h, key: `${h.q},${h.r}` }))
+  // ─── TILES ───
+  const tilesToRender = useMemo(
+    () => hexGrid
+      .map(h => ({ hex: h, key: `${h.q},${h.r}` }))
       .filter(({ key }) => key !== '0,0' && !satelites[key]),
     [hexGrid, satelites]
   )
+
+  const [mapReady, setMapReady] = useState(false)
+  const [mapTimeoutId, setMapTimeoutId] = useState(null)
+
+  const handleMapReady = () => {
+    const id = setTimeout(() => setMapReady(true), 400)
+    setMapTimeoutId(id)
+  }
+
+  useEffect(() => () => { if (mapTimeoutId) clearTimeout(mapTimeoutId) }, [mapTimeoutId])
 
   const noop = () => { }
   const jaColetou = () => true
 
   return (
-    <MapWorldActivities
-      nomeEmpresa="FitCity"
-      porte={nivelAtual.porte}
-      raioMapa={raioMapa}
-      dayProgress={0}
-      posicoes={posicoes}
-      satelites={satelites}
-      tilesToRender={tiles}
-      hexMap={hexMap}
-      edificioPorId={edificioPorId}
-      chavesAntigas={null}
-      expandindo={false}
-      selectedKey={null}
-      moveMode={false}
-      hoveredKey={null}
-      isFullscreen={false}
-      onHexClick={noop}
-      onHover={noop}
-      onMover={noop}
-      onCancelarMove={noop}
-      onFecharPainel={noop}
-      onColetarMoeda={noop}
-      jaColetou={jaColetou}
-      onMapReady={noop}
-    />
+    <>
+      <MapWorldActivities
+        nomeEmpresa="FitCity"
+        porte={nivelAtual.porte}
+        raioMapa={raioMapa}
+        dayProgress={0}
+        posicoes={posicoes}
+        satelites={satelites}
+        tilesToRender={tilesToRender}
+        hexMap={hexMap}
+        edificioPorId={edificioPorId}
+        chavesAntigas={null}
+        expandindo={false}
+        selectedKey={null}
+        moveMode={false}
+        hoveredKey={null}
+        isFullscreen={false}
+        onHexClick={noop}
+        onHover={noop}
+        onMover={noop}
+        onCancelarMove={noop}
+        onFecharPainel={noop}
+        onColetarMoeda={noop}
+        jaColetou={jaColetou}
+        onMapReady={handleMapReady}
+      />
+      <MapLoadingOverlay visible={!mapReady} />
+    </>
   )
 }
 
 // =============================================
 // MAPA DE CALOR (Heatmap)
+// 🔥 Corrigido: usa `a.duracao` em vez de `a.tempo`
 // =============================================
 function MapaDeCalor({ dados = [] }) {
   const max = Math.max(...dados.map(d => d.valor), 1)
@@ -288,10 +294,7 @@ function MapaDeCalor({ dados = [] }) {
     <div className="mt-2">
       <div className="grid grid-cols-7 gap-1 mb-1.5">
         {DIAS_SEMANA.map((d, i) => (
-          <div
-            key={i}
-            className="text-center text-[8px] font-bold text-white/40 uppercase"
-          >
+          <div key={i} className="text-center text-[8px] font-bold text-white/40 uppercase">
             {d}
           </div>
         ))}
@@ -320,9 +323,7 @@ function MapaDeCalor({ dados = [] }) {
               }}
               title={`Dia ${c.dia}: ${c.valor} min`}
             >
-              <span className="text-[7px] font-bold text-white/70">
-                {c.dia}
-              </span>
+              <span className="text-[7px] font-bold text-white/70">{c.dia}</span>
             </div>
           )
         })}
@@ -348,13 +349,11 @@ function BlocoMetaSemanal({
 
   return (
     <div
-      className={`relative rounded-2xl mt-4 p-3 border overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${
-        metaBatida
-          ? 'bg-gradient-to-br from-[#F27405]/35 to-[#6411D9]/55 border-[#6411D9]/35'
-          : 'bg-[#1E0A3C]/55 border-white/10'
-      }`}
+      className={`relative rounded-2xl mt-4 p-3 border overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${metaBatida
+        ? 'bg-gradient-to-br from-[#F27405]/35 to-[#6411D9]/55 border-[#6411D9]/35'
+        : 'bg-[#1E0A3C]/55 border-white/10'
+        }`}
     >
-      {/* Header */}
       <div className="flex items-center justify-between mb-3 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center shadow-[0_4px_14px_rgba(242,116,5,0.5)] shrink-0">
@@ -368,70 +367,58 @@ function BlocoMetaSemanal({
           </div>
         </div>
 
-        {/* Botão de recompensa */}
         <button
           type="button"
           disabled={!metaBatida || recompensaJaColetada}
           onClick={onColetarRecompensa}
-          className={`rounded-xl px-2.5 py-1 flex items-center gap-1 shrink-0 transition-all ${
-            recompensaJaColetada
-              ? 'bg-[#6411D9] border border-[#6411D9]/40 cursor-default'
-              : metaBatida
+          className={`rounded-xl px-2.5 py-1 flex items-center gap-1 shrink-0 transition-all ${recompensaJaColetada
+            ? 'bg-[#6411D9] border border-[#6411D9]/40 cursor-default'
+            : metaBatida
               ? 'bg-gradient-to-br from-[#F27405] to-[#6411D9] shadow-[0_4px_15px_rgba(242,116,5,0.55)] hover:scale-105 active:scale-95 cursor-pointer animate-pulse'
               : 'bg-gradient-to-br from-orange-500 to-orange-600 opacity-60 cursor-not-allowed'
-          }`}
+            }`}
           title={
             recompensaJaColetada
               ? 'Recompensa já coletada esta semana'
               : metaBatida
-              ? `Coletar +${recompensa} moedas`
-              : `Bata ${metaSemanal} treinos para liberar`
+                ? `Coletar +${recompensa} moedas`
+                : `Bata ${metaSemanal} treinos para liberar`
           }
         >
           {recompensaJaColetada ? (
             <>
               <Check size={11} className="text-white" strokeWidth={3} />
-              <span className="text-[10px] font-black text-white uppercase">
-                Coletado
-              </span>
+              <span className="text-[10px] font-black text-white uppercase">Coletado</span>
             </>
           ) : (
             <>
               <Gift size={11} className="text-white" />
-              <span className="text-[10px] font-black text-white">
-                +{recompensa}
-              </span>
+              <span className="text-[10px] font-black text-white">+{recompensa}</span>
               <Coins size={10} className="text-white" />
             </>
           )}
         </button>
       </div>
 
-      {/* Barra de progresso */}
       <div className="w-full h-2 bg-black/50 rounded-full mb-3 overflow-hidden border border-white/10">
         <div
-          className={`h-full rounded-full transition-all duration-500 ${
-            metaBatida
-              ? 
-              'bg-gradient-to-r from-[#6411D9] via-[#F27405] to-orange-600 shadow-[0_0_10px_rgba(100,17,217,0.7)]'
-              : 
-              'bg-gradient-to-r from-[#F27405] to-orange-500 shadow-[0_0_8px_rgba(242,116,5,0.5)]'
-          }`}
+          className={`h-full rounded-full transition-all duration-500 ${metaBatida
+            ? 'bg-gradient-to-r from-[#6411D9] via-[#F27405] to-orange-600 shadow-[0_0_10px_rgba(100,17,217,0.7)]'
+            : 'bg-gradient-to-r from-[#F27405] to-orange-500 shadow-[0_0_8px_rgba(242,116,5,0.5)]'
+            }`}
           style={{ width: `${pctMeta}%` }}
         />
       </div>
 
-      {/* Dias da semana */}
       <div className="flex justify-between items-center gap-0.5">
         {dias.map((item, index) => (
           <div key={index} className="flex flex-col items-center gap-1 flex-1 min-w-0">
             <div className="relative">
               <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
-                  item.concluido
-                    ? 'bg-gradient-to-br from-[#F27405] to-orange-600 text-white shadow-[0_4px_15px_rgba(242,116,5,0.5)]'
-                    : 'bg-purple-900/40 text-purple-300/50 border border-purple-500/20'
-                }`}
+                className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${item.concluido
+                  ? 'bg-gradient-to-br from-[#F27405] to-orange-600 text-white shadow-[0_4px_15px_rgba(242,116,5,0.5)]'
+                  : 'bg-purple-900/40 text-purple-300/50 border border-purple-500/20'
+                  }`}
               >
                 {item.dia}
               </div>
@@ -452,9 +439,8 @@ function BlocoMetaSemanal({
                 className={item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'}
               />
               <span
-                className={`text-[9px] font-bold ${
-                  item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'
-                }`}
+                className={`text-[9px] font-bold ${item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'
+                  }`}
               >
                 {item.concluido ? `+${item.xp}` : '-'}
               </span>
@@ -463,7 +449,6 @@ function BlocoMetaSemanal({
         ))}
       </div>
 
-      {/* Etiqueta de meta batida */}
       {metaBatida && !recompensaJaColetada && (
         <p className="text-[9px] font-black text-purple-200 uppercase tracking-wider mt-2 text-center drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
           ★ Meta batida — colete sua recompensa!
@@ -475,6 +460,7 @@ function BlocoMetaSemanal({
 
 // =============================================
 // CARD PEQUENO DE MODALIDADE
+// 🔥 Corrigido: usa `a.duracao` em vez de `a.tempo`
 // =============================================
 function CardModalidadePequeno({ tipo, dados, corConfig }) {
   const { cor, corBg1, corBg2 } = corConfig
@@ -583,7 +569,6 @@ function CardModalidadeGrande({ tipo, dados, corConfig }) {
       />
 
       <div className="relative flex flex-col h-full">
-
         <div className="flex items-center gap-2 mb-4">
           <div
             className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
@@ -672,7 +657,6 @@ function CardModalidadeGrande({ tipo, dados, corConfig }) {
             </span>
           </div>
         </div>
-
       </div>
     </div>
   )
@@ -682,12 +666,16 @@ function CardModalidadeGrande({ tipo, dados, corConfig }) {
 // COMPONENTE PRINCIPAL
 // =============================================
 export default function ActivitiesScreen({
-  atividades = [],
+  atividades: atividadesProp,
   onRegistrar,
   onSelecionarAtividade,
   onColetarRecompensa,
 }) {
   const [escopo, setEscopo] = useState('semana')
+
+  // 🔥 Consome atividades da store (fonte única), com fallback pra prop
+  const atividadesStore = useFitCityStore((s) => s.atividades)
+  const atividades = atividadesProp || atividadesStore || []
 
   // ── Recompensa semanal ──
   const semanaKey = useMemo(() => getSemanaAtualKey(), [])
@@ -730,15 +718,10 @@ export default function ActivitiesScreen({
   const nivelAtual = useMemo(() => calcularNivel(atividades.length), [atividades.length])
   const proximoNivel = TABELA_NIVEIS[nivelAtual.nivel] || null
 
-  const proximoEdificio = useMemo(() => {
-    if (!proximoNivel) return 'Mega Holding'
-    return escolherEdificioPorNivel(Math.min(proximoNivel.nivel - 1, 6)).nome
-  }, [proximoNivel])
-
   // ── Dias da semana ──
   const diasDaSemana = useMemo(() => {
     const labels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D']
-    const nomes = ['Hoje', 'Ontem', 'Anteontem', 'Qui', 'Sex', 'Sáb', 'Dom']
+    const nomes = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']
 
     const hoje = new Date()
     const diaSemana = hoje.getDay()
@@ -765,6 +748,7 @@ export default function ActivitiesScreen({
   }, [atividades])
 
   // ── Dados Gráfico Mensal ──
+  // 🔥 Corrigido: usa `a.duracao` em vez de `a.tempo`
   const dadosMesHeatmap = useMemo(() => {
     const agora = new Date()
     const diasNoMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate()
@@ -774,13 +758,14 @@ export default function ActivitiesScreen({
       const dataStr = new Date(agora.getFullYear(), agora.getMonth(), d).toDateString()
       const totalMin = atividades
         .filter(a => new Date(a.data).toDateString() === dataStr)
-        .reduce((acc, a) => acc + (a.tempo || 0), 0)
+        .reduce((acc, a) => acc + (a.duracao || 0), 0)  // ← corrigido: duracao
       dados.push({ dia: d, valor: totalMin })
     }
     return dados
   }, [atividades])
 
   // ── Desempenho por modalidade ──
+  // 🔥 Corrigido: usa `a.duracao` em vez de `a.tempo`
   const desempenho = useMemo(() => {
     const base = escopo === 'semana' ? atividadesSemana : atividadesMes
     const grupos = { corrida: [], musculacao: [], caminhada: [] }
@@ -802,7 +787,7 @@ export default function ActivitiesScreen({
         }
       }
       const totalDist = lista.reduce((acc, a) => acc + (a.distancia || 0), 0)
-      const totalTempo = lista.reduce((acc, a) => acc + (a.tempo || 0), 0)
+      const totalTempo = lista.reduce((acc, a) => acc + (a.duracao || 0), 0)  // ← corrigido
       const totalCalorias = lista.reduce((acc, a) => acc + (a.calorias || 0), 0)
       return {
         qtd: lista.length,
@@ -857,15 +842,14 @@ export default function ActivitiesScreen({
   return (
     <div className="flex flex-col gap-4 pb-24 text-white">
 
-      {/* ═══════════════ HEADER ═══════════════ */}
+      {/* HEADER */}
       <div className="px-4 pt-6">
         <h1 className="text-2xl font-black">Atividades</h1>
       </div>
 
-      {/* ═══════════════ CARD UNIFICADO ═══════════════ */}
+      {/* CARD UNIFICADO */}
       <div className="px-3">
         <div className="relative bg-gradient-to-br from-purple-900/60 to-indigo-900/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_10px_30px_rgba(100,17,217,0.35)] overflow-hidden min-h-[150px] sm:min-h-[280px]">
-
           <div className="absolute inset-0 pointer-events-none">
             <MiniMapaCidade atividades={atividades} />
           </div>
@@ -873,10 +857,7 @@ export default function ActivitiesScreen({
           <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/85 pointer-events-none" />
 
           <div className="relative flex flex-col justify-between h-full p-4 gap-3">
-
-            {/* LINHA 1: "Hoje" + bloco de calorias */}
             <div className="flex items-start justify-between gap-2">
-
               <div className="shrink-0">
                 <p className="text-base font-black leading-tight drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
                   Hoje
@@ -886,13 +867,11 @@ export default function ActivitiesScreen({
                 </p>
               </div>
 
-              {/* Container interno de calorias — Tailwind puro */}
               <div
-                className={`relative rounded-2xl border px-4 py-3 w-[130px] overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${
-                  metaHojeBatida
-                    ? 'bg-gradient-to-br from-[#F27405]/35 to-[#6411D9]/55 border-[#6411D9]/35'
-                    : 'bg-[#1E0A3C]/55 border-white/10'
-                }`}
+                className={`relative rounded-2xl border px-4 py-3 w-[130px] overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${metaHojeBatida
+                  ? 'bg-gradient-to-br from-[#F27405]/35 to-[#6411D9]/55 border-[#6411D9]/35'
+                  : 'bg-[#1E0A3C]/55 border-white/10'
+                  }`}
               >
                 <div className="flex items-center justify-between gap-1 mb-1">
                   <div className="flex items-center gap-1 min-w-0">
@@ -902,9 +881,8 @@ export default function ActivitiesScreen({
                     </span>
                   </div>
                   <span
-                    className={`text-[11px] font-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] shrink-0 ${
-                      metaHojeBatida ? 'text-purple-300' : 'text-[#F27405]'
-                    }`}
+                    className={`text-[11px] font-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] shrink-0 ${metaHojeBatida ? 'text-purple-300' : 'text-[#F27405]'
+                      }`}
                   >
                     {Math.round(pctHoje)}%
                   </span>
@@ -916,11 +894,10 @@ export default function ActivitiesScreen({
 
                 <div className="relative h-2 rounded-full bg-black/50 border border-white/10 overflow-hidden">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      metaHojeBatida
-                        ? 'bg-gradient-to-r from-[#F27405] via-orange-600 to-[#6411D9] shadow-[0_0_10px_rgba(100,17,217,0.7)]'
-                        : 'bg-gradient-to-r from-[#F27405] to-orange-500 shadow-[0_0_8px_rgba(242,116,5,0.5)]'
-                    }`}
+                    className={`h-full rounded-full transition-all duration-500 ${metaHojeBatida
+                      ? 'bg-gradient-to-r from-[#F27405] via-orange-600 to-[#6411D9] shadow-[0_0_10px_rgba(100,17,217,0.7)]'
+                      : 'bg-gradient-to-r from-[#F27405] to-orange-500 shadow-[0_0_8px_rgba(242,116,5,0.5)]'
+                      }`}
                     style={{ width: `${pctHoje}%` }}
                   />
                 </div>
@@ -933,7 +910,6 @@ export default function ActivitiesScreen({
               </div>
             </div>
 
-            {/* LINHA 2: Km • Tempo • Moedas */}
             <div className="bg-[#6411D9]/30 backdrop-blur-sm rounded-2xl border border-white/10 flex items-stretch overflow-hidden">
               <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 min-w-0">
                 <MapPin size={14} className="text-orange-400 shrink-0" />
@@ -941,18 +917,14 @@ export default function ActivitiesScreen({
                   {resumoHoje.distancia.toFixed(1)} Km
                 </span>
               </div>
-
               <div className="w-px bg-white/10 my-2" />
-
               <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 min-w-0">
                 <Clock size={14} className="text-orange-400 shrink-0" />
                 <span className="text-xs font-bold truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
                   {Math.floor(resumoHoje.tempo / 60)}h {resumoHoje.tempo % 60}min
                 </span>
               </div>
-
               <div className="w-px bg-white/10 my-2" />
-
               <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 min-w-0">
                 <Coins size={14} className="text-orange-400 shrink-0" />
                 <span className="text-xs font-bold truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
@@ -960,12 +932,11 @@ export default function ActivitiesScreen({
                 </span>
               </div>
             </div>
-
           </div>
         </div>
       </div>
 
-      {/* ═══════════════ BOTÃO REGISTRAR ═══════════════ */}
+      {/* BOTÃO REGISTRAR */}
       <div className="px-3">
         <button
           onClick={onRegistrar}
@@ -977,7 +948,7 @@ export default function ActivitiesScreen({
         </button>
       </div>
 
-      {/* ═══════════════ RESUMO SEMANAL ═══════════════ */}
+      {/* RESUMO SEMANAL */}
       <div className="px-3">
         <div className="bg-[#350973]/70 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-[0_10px_30px_rgba(100,17,217,0.3)]">
           <div className="flex items-center justify-between mb-3">
@@ -1015,7 +986,7 @@ export default function ActivitiesScreen({
             dias={diasDaSemana}
             progressoMeta={progressoMeta}
             metaSemanal={META_SEMANAL_ATIVIDADES}
-            proximoEdificio={proximoEdificio}
+            proximoEdificio="—"
             metaBatida={metaSemanalBatida}
             recompensaJaColetada={recompensaJaColetada}
             onColetarRecompensa={handleColetarRecompensa}
@@ -1023,7 +994,7 @@ export default function ActivitiesScreen({
         </div>
       </div>
 
-      {/* ═══════════════ RESUMO MENSAL ═══════════════ */}
+      {/* RESUMO MENSAL */}
       <div className="px-3">
         <div className="bg-purple-900/40 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-[0_10px_30px_rgba(100,17,217,0.3)]">
           <div className="flex items-center justify-between mb-3">
@@ -1053,10 +1024,9 @@ export default function ActivitiesScreen({
         </div>
       </div>
 
-      {/* ═══════════════ SUAS ATIVIDADES ═══════════════ */}
+      {/* SUAS ATIVIDADES */}
       <div className="px-3">
         <div className="bg-purple-900/40 backdrop-blur-xl border border-white/10 rounded-2xl p-3.5 shadow-[0_10px_30px_rgba(100,17,217,0.3)]">
-
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-purple-600/40 flex items-center justify-center">

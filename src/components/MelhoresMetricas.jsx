@@ -97,14 +97,14 @@ export default function MelhoresMetricas({ onClick }) {
       label: 'Maior distância',
       valor: `${Number(metricas.maiorDistancia.distancia).toFixed(1)} km`,
       Icon: MapPin,
-      cor: '#60A5FA',
+      cor: '#F27405',
       data: metricas.maiorDistancia.data,
     },
     metricas.maiorDuracao && {
       label: 'Maior duração',
       valor: formatarTempo(metricas.maiorDuracao.duracao),
       Icon: Clock,
-      cor: '#34D399',
+      cor: '#F27405',
       data: metricas.maiorDuracao.data,
     },
     metricas.maiorKcal && {
@@ -118,7 +118,7 @@ export default function MelhoresMetricas({ onClick }) {
       label: 'Melhor pace',
       valor: formatarPace(metricas.melhorPace.distancia, metricas.melhorPace.duracao),
       Icon: Zap,
-      cor: '#C084FC',
+      cor: '#F27405',
       data: metricas.melhorPace.data,
     },
   ].filter(Boolean)

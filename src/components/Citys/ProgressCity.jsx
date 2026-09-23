@@ -648,7 +648,7 @@ export default function CityProgress({ onSelecionarAtividade }) {
               }}
             >
               🗺️
-              {expandindo ? 'Expandindo...' : 'Expandir Mundo'}
+              {expandindo ? 'Expandindo...' : 'Expandir'}
             </button>
 
             <style>{`
