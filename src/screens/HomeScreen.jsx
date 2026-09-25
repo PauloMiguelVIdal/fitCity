@@ -18,7 +18,10 @@ import {
   Gift,
   Check,
   Trophy,
-  Bell
+  Bell,
+  X,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react'
 
 import MapWorldFitCity from '../components/MapWorldCity'
@@ -38,6 +41,7 @@ const META_SEMANAL_ATIVIDADES = 5
 const RECOMPENSA_META_SEMANAL = 100
 const STORAGE_KEY_META_SEMANAL = 'fitcity:meta-semanal-coletada'
 const STORAGE_KEY_ATIVIDADES = 'fitcity:atividades'
+const STORAGE_KEY_NOTIFICACAO_DISMISS = 'fitcity:notificacao-dismiss'
 
 // ============================================================
 // TABELA DE NÍVEIS (mesma usada no ActivitiesScreen)
@@ -86,13 +90,26 @@ function getSemanaAtualKey() {
   return `${ano}-W${semana}`
 }
 
+// Helper: verifica se notificação foi dispensada hoje
+function notificacaoDismissadaHoje() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_NOTIFICACAO_DISMISS)
+    if (!raw) return false
+    const parsed = JSON.parse(raw)
+    return parsed?.data === new Date().toDateString()
+  } catch {
+    return false
+  }
+}
+
 export default function HomeScreen({
   onNavigate,
   atividades: atividadesProp,
   onRegistrar,
-  onColetarRecompensa, // 🔥 callback opcional: (moedas) => void
+  onColetarRecompensa,
 }) {
   const [modalLojaAberto, setModalLojaAberto] = useState(false)
+  const [notificacaoVisivel, setNotificacaoVisivel] = useState(() => !notificacaoDismissadaHoje())
 
   // ============================================================
   // FONTE DE DADOS: prop > localStorage
@@ -137,6 +154,19 @@ export default function HomeScreen({
       setRecompensaJaColetada(parsed?.semana === semanaKey)
     } catch { /* noop */ }
   }, [semanaKey])
+
+  // ============================================================
+  // HANDLER: dispensar notificação
+  // ============================================================
+  const handleDismissNotificacao = () => {
+    setNotificacaoVisivel(false)
+    try {
+      localStorage.setItem(
+        STORAGE_KEY_NOTIFICACAO_DISMISS,
+        JSON.stringify({ data: new Date().toDateString() })
+      )
+    } catch { /* noop */ }
+  }
 
   // ============================================================
   // PACOTES PRINCIPAIS
@@ -380,12 +410,10 @@ export default function HomeScreen({
   const handleColetarRecompensa = () => {
     if (!metaSemanalBatida || recompensaJaColetada) return
 
-    // 1) Notifica o pai
     if (typeof onColetarRecompensa === 'function') {
       onColetarRecompensa(RECOMPENSA_META_SEMANAL)
     }
 
-    // 2) Fallback: salva no localStorage
     try {
       const saldoRaw = localStorage.getItem('fitcity:saldo-moedas')
       const saldoAtual = saldoRaw ? Number(saldoRaw) || 0 : 0
@@ -395,7 +423,6 @@ export default function HomeScreen({
       )
     } catch { /* noop */ }
 
-    // 3) Marca como coletado nesta semana
     try {
       localStorage.setItem(
         STORAGE_KEY_META_SEMANAL,
@@ -410,34 +437,71 @@ export default function HomeScreen({
     <div className="relative px-3 sm:px-4 pt-4 sm:pt-6 flex flex-col gap-3 sm:gap-4 text-white min-h-screen pb-12">
 
       {/* ======================================================
-          HEADER — CIDADE CONQUISTADA
+          NOTIFICAÇÃO MODERNA — CARD FLUTUANTE
           ====================================================== */}
+      {notificacaoVisivel && (
+        <div className="relative w-full z-20 animate-[slideDown_0.4s_ease-out]">
+          <div className="relative flex items-start gap-3 w-full rounded-2xl p-3.5 sm:p-4 overflow-hidden bg-gradient-to-br from-[#1E0A3C]/95 to-[#0F0520]/95 backdrop-blur-xl border border-purple-500/30 shadow-[0_10px_40px_rgba(100,17,217,0.5)]">
+            
+            {/* Glow de fundo */}
+            <div className="absolute -top-8 -left-8 w-24 h-24 rounded-full bg-purple-600/40 blur-[40px] pointer-events-none" />
+            <div className="absolute -bottom-8 -right-8 w-24 h-24 rounded-full bg-orange-500/30 blur-[40px] pointer-events-none" />
 
-      <div
+            {/* Ícone com animação */}
+            <div className="relative shrink-0 mt-0.5">
+              <div className="absolute inset-0 bg-orange-500 rounded-xl blur-md opacity-70 animate-pulse" />
+              <div className="relative bg-gradient-to-br from-[#6411D9] to-[#331B8C] rounded-xl p-2.5 shadow-[0_4px_20px_rgba(234,88,12,0.6)]">
+                <Bell size={18} className="relative text-white" />
+              </div>
+              {/* Badge de notificação */}
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center border-2 border-[#0F0520]">
+                <Sparkles size={8} className="text-white" />
+              </span>
+            </div>
 
-        className="relative flex items-center gap-2 sm:gap-3 w-full rounded-2xl p-3 sm:p-4 text-left overflow-hidden transition-all duration-300 group z-10 border border-white/10 shadow-[0_10px_40px_rgba(100,17,217,0.45)]"
-      >
-        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+            {/* Conteúdo */}
+            <div className="relative flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <p className="font-bold text-white text-sm leading-tight">
+                  Lembrete de Movimento
+                </p>
+                <span className="text-[9px] font-black uppercase tracking-wider text-orange-300/90 bg-orange-500/20 px-1.5 py-0.5 rounded-full">
+                  Hoje
+                </span>
+              </div>
+              <p className="text-xs text-purple-100/70 leading-relaxed">
+                Não esqueça de se movimentar! Cada atividade conta para sua meta semanal. 🏃‍♂️
+              </p>
 
-        <div className="relative shrink-0">
-          <div className="absolute inset-0 bg-orange-500 rounded-xl blur-md opacity-60 animate-pulse" />
-          <div className="relative bg-gradient-to-br from-[#6411D9] to-[#331B8C] rounded-xl p-2 sm:p-2.5 shadow-[0_4px_20px_rgba(234,88,12,0.6)]">
-            <Bell size={18} className="relative text-white sm:w-5 sm:h-5" />
+              {/* Mini progresso */}
+              <div className="flex items-center gap-2 mt-2.5">
+                <div className="flex-1 h-1.5 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#6411D9] to-[#F27405] transition-all duration-700"
+                    style={{ width: `${(progressoSemanal / metaSemanal) * 100}%` }}
+                  />
+                </div>
+                <span className="text-[10px] font-bold text-purple-200/80 whitespace-nowrap">
+                  {progressoSemanal}/{metaSemanal}
+                </span>
+              </div>
+            </div>
+
+            {/* Botão fechar */}
+            <button
+              onClick={handleDismissNotificacao}
+              className="relative shrink-0 p-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-colors group"
+              aria-label="Fechar notificação"
+            >
+              <X size={14} className="text-white/50 group-hover:text-white transition-colors" />
+            </button>
           </div>
         </div>
+      )}
 
-        <div className="relative flex-1 min-w-0">
-          <p className="font-semibold text-white text-sm sm:text-sm truncate">
-            Lembresse de se movimentar hoje
-          </p>
-
-        </div>
-
-        {/* <CircleChevronRight
-          size={16}
-          className="relative text-white/70 transition-transform duration-300 group-hover:translate-x-1 shrink-0 sm:w-[18px] sm:h-[18px]"
-        /> */}
-      </div>
+      {/* ======================================================
+          HEADER — CIDADE CONQUISTADA
+          ====================================================== */}
       <div className="relative flex items-center justify-between z-10 gap-2 w-full">
         <div className="relative w-full bg-fitcity-surface/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(100,17,217,0.35)] z-10">
           <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-fitcity-accent/30 blur-[80px]" />
@@ -596,8 +660,6 @@ export default function HomeScreen({
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
 
-
-            {/* 🔥 Botão clicável de recompensa */}
             <button
               type="button"
               disabled={!metaSemanalBatida || recompensaJaColetada}
