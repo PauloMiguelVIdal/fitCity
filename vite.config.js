@@ -14,21 +14,26 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'FitCity Spike',
+        name: 'FitCity',
         short_name: 'FitCity',
+          start_url: '/',           // 🔥 FALTA ISSO
+  scope: '/',               // 🔥 FALTA ISSO
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#350973',
         theme_color: '#350973',
         icons: [
-          { src: '/assets/logo Joguinho.png', sizes: '192x192', type: 'image/png' },
-          { src: '/assets/logo Joguinho.png', sizes: '512x512', type: 'image/png' },
-          { src: '/assets/logo Joguinho.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: '/assets/logoApp.png', sizes: '192x192', type: 'image/png' },
+          { src: '/assets/logoApp.png', sizes: '512x512', type: 'image/png' },
+          { src: '/assets/logoApp.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html}'],
-      },
+workbox: {
+  globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
+  cleanupOutdatedCaches: true,
+  clientsClaim: true,
+  skipWaiting: true,
+},
     }),
   ],
 })
