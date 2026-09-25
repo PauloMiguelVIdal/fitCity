@@ -1,8 +1,4 @@
-// ============================================================
-//  MapWorldFitCity.jsx - Mapa Baseado nas Cartas FitCity
-//  🔥 Componente PURO DE RENDERIZAÇÃO — toda lógica fica no pai
-// ============================================================
-
+// src/components/MapWorldCity.jsx
 import React, { useMemo, useRef, useState, useEffect, useCallback } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { ContactShadows, OrbitControls } from '@react-three/drei'
@@ -21,7 +17,22 @@ const hexToWorld = (hex, size) => ({
 })
 
 // ─────────────────────────────────────────────────────────────
-//  Cache de verificação de modelos
+//  CÂMERA — DEFAULTS
+// ─────────────────────────────────────────────────────────────
+const CAMERA_DEFAULTS = {
+  position: [3, 3, 3],       // 🔥 posição padrão (diorama 3/4)
+  fov: 35,
+  target: [0, 0, 0],
+  minDistance: 3,
+  maxDistance: 20,
+  minPolarAngle: Math.PI / 4,
+  maxPolarAngle: Math.PI / 2.8,
+  autoRotate: false,
+  autoRotateSpeed: 0.5,
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Cache de verificação
 // ─────────────────────────────────────────────────────────────
 const edificioEhComposto = (() => {
   const cache = new Map()
@@ -148,12 +159,12 @@ const Ocean = React.memo(() => {
 // ─────────────────────────────────────────────────────────────
 //  CAMADA 3: HEX BASE
 // ─────────────────────────────────────────────────────────────
-const HexBase = React.memo(({ 
-  corTopo = '#5a9e44', 
-  config = {}, 
-  selected = false, 
-  hovered = false, 
-  moveMode = false 
+const HexBase = React.memo(({
+  corTopo = '#5a9e44',
+  config = {},
+  selected = false,
+  hovered = false,
+  moveMode = false
 }) => {
   const shape = useMemo(() => {
     const s = new THREE.Shape()
@@ -171,19 +182,11 @@ const HexBase = React.memo(({
 
   return (
     <group>
-      <mesh 
-        rotation={[-Math.PI / 2, 0, 0]} 
-        castShadow={hasShadows} 
-        receiveShadow={hasShadows}
-      >
+      <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow={hasShadows} receiveShadow={hasShadows}>
         <extrudeGeometry args={[shape, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.015, bevelSegments: 2 }]} />
         <meshStandardMaterial color="#4a7230" roughness={0.9} metalness={0} />
       </mesh>
-      <mesh 
-        rotation={[-Math.PI / 2, 0, 0]} 
-        position={[0, 0.2, 0]} 
-        receiveShadow={hasShadows}
-      >
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.2, 0]} receiveShadow={hasShadows}>
         <shapeGeometry args={[shape]} />
         <meshStandardMaterial color={corTopo} roughness={0.8} metalness={0} />
       </mesh>
@@ -227,14 +230,14 @@ const HexTileClusterSatelite = React.memo(({ hex, corTopo, modeloId, corFallback
 })
 
 // ─────────────────────────────────────────────────────────────
-//  HexTile — com LIFT ao selecionar/hover
+//  HexTile
 // ─────────────────────────────────────────────────────────────
-const HexTile = React.memo(({ 
-  hex, 
-  building, 
-  onClick, 
-  selected, 
-  moveMode, 
+const HexTile = React.memo(({
+  hex,
+  building,
+  onClick,
+  selected,
+  moveMode,
   config = {},
   onHover,
   isHovered,
@@ -243,7 +246,7 @@ const HexTile = React.memo(({
   const { x, z } = hexToWorld(hex, HEX_SIZE)
   const groupRef = useRef()
   const [targetY, setTargetY] = useState(0)
-  
+
   useEffect(() => {
     if (selected) setTargetY(0.14)
     else if (isHovered) setTargetY(0.06)
@@ -260,7 +263,7 @@ const HexTile = React.memo(({
       groupRef.current.position.y = targetY
     }
   })
-  
+
   const handleClick = useCallback((e) => {
     e.stopPropagation()
     onClick(hex)
@@ -275,23 +278,23 @@ const HexTile = React.memo(({
     e.stopPropagation()
     if (onHover) onHover(`${hex.q},${hex.r}`, false)
   }, [onHover, hex])
-  
+
   return (
-    <group 
+    <group
       ref={groupRef}
       position={[x, 0, z]}
       onClick={handleClick}
       onPointerOver={handleOver}
       onPointerOut={handleOut}
     >
-      <HexBase 
-        corTopo={building ? SETOR_CONFIG[building.setor]?.cor3 : undefined} 
+      <HexBase
+        corTopo={building ? SETOR_CONFIG[building.setor]?.cor3 : undefined}
         config={config}
         selected={selected}
         hovered={isHovered}
         moveMode={moveMode}
       />
-      
+
       {building && (
         <BuildingModel
           nomeEdificio={building.nome}
@@ -323,7 +326,7 @@ const HexTile = React.memo(({
 // ─────────────────────────────────────────────────────────────
 const Sede = React.memo(({ nomeEmpresa, porte, config = {} }) => {
   const sedeConfig = useMemo(() => resolverModeloSede(porte), [porte])
-  
+
   return (
     <group position={[0, 0, 0]}>
       <HexBase corTopo="#4a7230" config={config} />
@@ -349,10 +352,10 @@ const Lights = React.memo(({ config = {} }) => {
 
   return (
     <>
-      <directionalLight 
-        position={[15, 20, 10]} 
-        intensity={1.5} 
-        color="#ffffff" 
+      <directionalLight
+        position={[15, 20, 10]}
+        intensity={1.5}
+        color="#ffffff"
         castShadow={hasShadows}
         shadow-mapSize={[mapSize, mapSize]}
         shadow-bias={bias}
@@ -527,10 +530,10 @@ const PainelSelecionado = ({ building, isFullscreen, moveMode, onMover, onFechar
 }
 
 // ═════════════════════════════════════════════════════════════
-//  🔥 COMPONENTE PÚBLICO — SÓ RENDERIZA O QUE RECEBE
+//  COMPONENTE PÚBLICO — COM CÂMERA CONFIGURÁVEL
 // ═════════════════════════════════════════════════════════════
 export default function MapWorldFitCity({
-  // ─── Dados (vem do pai) ───
+  // ─── Dados ───
   porte,
   edificiosAtivos = [],
   posicoes = {},
@@ -539,7 +542,7 @@ export default function MapWorldFitCity({
   hexMap,
   edificioPorId,
 
-  // ─── Estado de interação ───
+  // ─── Interação ───
   selectedKey,
   moveMode,
   hoveredKey,
@@ -552,8 +555,42 @@ export default function MapWorldFitCity({
   onCancelarMove,
   onFecharPainel,
   onMapReady,
+
+  // 🔥 ─── CÂMERA (novo) ───
+  cameraPosition,
+  cameraFov,
+  cameraTarget,
+  minDistance,
+  maxDistance,
+  minPolarAngle,
+  maxPolarAngle,
+  autoRotate,
+  autoRotateSpeed,
+  dayProgress = 0,
+  /** true = só renderiza o 3D, sem painéis/banners */
+  minimalist = false,
+  /** desabilita OrbitControls (para mini mapas estáticos) */
+  disableControls = false,
 }) {
   const { config: graphicsConfig } = useGraphicsConfig()
+
+  // Merge com defaults
+  const cam = useMemo(() => ({
+    position: cameraPosition ?? CAMERA_DEFAULTS.position,
+    fov: cameraFov ?? CAMERA_DEFAULTS.fov,
+    target: cameraTarget ?? CAMERA_DEFAULTS.target,
+    minDistance: minDistance ?? CAMERA_DEFAULTS.minDistance,
+    maxDistance: maxDistance ?? CAMERA_DEFAULTS.maxDistance,
+    minPolarAngle: minPolarAngle ?? CAMERA_DEFAULTS.minPolarAngle,
+    maxPolarAngle: maxPolarAngle ?? CAMERA_DEFAULTS.maxPolarAngle,
+    autoRotate: autoRotate ?? CAMERA_DEFAULTS.autoRotate,
+    autoRotateSpeed: autoRotateSpeed ?? CAMERA_DEFAULTS.autoRotateSpeed,
+  }), [
+    cameraPosition, cameraFov, cameraTarget,
+    minDistance, maxDistance,
+    minPolarAngle, maxPolarAngle,
+    autoRotate, autoRotateSpeed,
+  ])
 
   // Edifício selecionado
   const selectedBuilding = useMemo(() => {
@@ -570,8 +607,8 @@ export default function MapWorldFitCity({
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', borderRadius: 20, overflow: 'hidden', backgroundColor: '#350973' }}>
 
-      {/* Painel do edifício selecionado */}
-      {selectedBuilding && !moveMode && (
+      {/* Painel do edifício selecionado (só se não for minimalista) */}
+      {!minimalist && selectedBuilding && !moveMode && (
         <PainelSelecionado
           building={selectedBuilding}
           isFullscreen={isFullscreen}
@@ -581,27 +618,31 @@ export default function MapWorldFitCity({
         />
       )}
 
-      {/* Banner de modo mover */}
-      {moveMode && (
+      {/* Banner de modo mover (só se não for minimalista) */}
+      {!minimalist && moveMode && (
         <MoveBanner onCancel={onCancelarMove} />
       )}
 
       <Canvas
-        frameloop={moveMode || hoveredKey ? "always" : "demand"}
+        frameloop={moveMode || hoveredKey ? 'always' : 'demand'}
         shadows={canvasConfig.shadows}
         gl={{
           antialias: canvasConfig.antialias,
-          powerPreference: "high-performance",
+          powerPreference: 'high-performance',
         }}
-        camera={{ position: [18, 18, 18], fov: 26 }}
+        // 🔥 Câmera configurável
+        camera={{
+          position: cam.position,
+          fov: cam.fov,
+        }}
         onPointerMissed={() => {
-          if (!moveMode) onFecharPainel?.()
+          if (!moveMode && !minimalist) onFecharPainel?.()
         }}
         onCreated={() => {
           onMapReady?.()
         }}
       >
-        <SkyDome dayProgress={0} />
+        <SkyDome dayProgress={dayProgress} />
 
         {graphicsConfig.oceanWaves ? (
           <Ocean />
@@ -616,18 +657,16 @@ export default function MapWorldFitCity({
 
         <group>
           <Sede
-            nomeEmpresa={"FitCity"}
+            nomeEmpresa={'FitCity'}
             porte={porte}
             config={graphicsConfig}
           />
 
-          {/* Satélites dos clusters */}
+          {/* Satélites */}
           {Object.entries(satelites).map(([key, { corTopo, modeloId, corFallback }]) => {
             if (key === '0,0') return null
-
             const hex = hexMap?.get(key)
             if (!hex) return null
-
             return (
               <HexTileClusterSatelite
                 key={`sat-${key}`}
@@ -640,11 +679,10 @@ export default function MapWorldFitCity({
             )
           })}
 
-          {/* Tiles normais */}
+          {/* Tiles */}
           {tilesToRender.map(({ hex, key }) => {
             const edId = posicoes[key]
             const building = edId ? edificioPorId?.get(edId) || null : null
-
             return (
               <HexTile
                 key={key}
@@ -670,19 +708,24 @@ export default function MapWorldFitCity({
           color="#1a3a10"
         />
 
-        <OrbitControls
-          enablePan={false}
-          enableZoom={!moveMode}
-          enableRotate={!moveMode}
-          rotateSpeed={0.5}
-          minPolarAngle={Math.PI / 4}
-          maxPolarAngle={Math.PI / 2.8}
-          target={[0, 0, 0]}
-          enableDamping={true}
-          dampingFactor={0.08}
-          autoRotate={graphicsConfig.autoRotate && !moveMode}
-          autoRotateSpeed={graphicsConfig.autoRotateSpeed}
-        />
+        {!disableControls && (
+          <OrbitControls
+            enablePan={false}
+            enableZoom={!moveMode}
+            enableRotate={!moveMode}
+            rotateSpeed={0.5}
+            // 🔥 Controles configuráveis
+            minPolarAngle={cam.minPolarAngle}
+            maxPolarAngle={cam.maxPolarAngle}
+            minDistance={cam.minDistance}
+            maxDistance={cam.maxDistance}
+            target={cam.target}
+            enableDamping={true}
+            dampingFactor={0.08}
+            autoRotate={cam.autoRotate && !moveMode}
+            autoRotateSpeed={cam.autoRotateSpeed}
+          />
+        )}
       </Canvas>
     </div>
   )

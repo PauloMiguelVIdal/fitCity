@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import {
   MapPin, Clock, Coins, Plus, Flame, Calendar,
-  TrendingUp, Footprints, Dumbbell, Trophy, Award, Zap,
+  Footprints, Dumbbell, Trophy,
   Gift, Check,
 } from 'lucide-react'
 import { defineHex, Grid, spiral } from 'honeycomb-grid'
@@ -10,10 +10,6 @@ import { TIPOS_ATIVIDADE } from '../data/tiposAtividade'
 import {
   FILTRO_POR_PERIODO,
   resumoDoPeriodo,
-  calcularMoedas,
-  edificioNivelPorAtividade,
-  setorPorAtividade,
-  fitScorePorAtividade,
 } from '../utils/atividades'
 import MapWorldActivities from '../components/MapWorldActivities'
 import MapLoadingOverlay from '../components/MapLoadingOverlay'
@@ -55,6 +51,26 @@ function calcularNivel(atividadesMes) {
   return resultado
 }
 
+/**
+ * 🔥 Helper blindado contra `undefined`/`NaN`.
+ * Aceita minutos e retorna "Xh Ymin" ou "Ymin".
+ */
+function formatarTempo(minutos) {
+  const m = Math.max(0, Number(minutos) || 0)
+  const h = Math.floor(m / 60)
+  const min = m % 60
+  if (h === 0) return `${min}min`
+  return `${h}h ${min}min`
+}
+
+/** Versão curta (pra resumos compactos) */
+function formatarTempoCurto(minutos) {
+  const m = Math.max(0, Number(minutos) || 0)
+  const h = Math.floor(m / 60)
+  const min = m % 60
+  return `${h}h ${min}m`
+}
+
 const MODALIDADE_CORES = {
   corrida: { cor: '#F27405', corBg1: '#F27405', corBg2: '#8B3D00' },
   musculacao: { cor: '#6411D9', corBg1: '#6411D9', corBg2: '#331B8C' },
@@ -74,21 +90,52 @@ function getSemanaAtualKey() {
 // =============================================
 // MINI MAPA DA CIDADE
 // ─────────────────────────────────────────────
-// 🔥 Corrigido: usa `edificioNivelPorAtividade` (mesma fonte da store)
-//    em vez de `getNivelPorMoedas` (fórmula inventada)
+// 🔥 Consome a store (fonte única) — mesma lógica da CidadeProgresso
+//    Fallback: se não houver temporada ativa, calcula a partir das atividades
 // =============================================
 function MiniMapaCidade({ atividades }) {
-  const atividadesMes = atividades.length
-  const nivelAtual = calcularNivel(atividadesMes)
+  const cidade = useFitCityStore((s) => s.cidade)
+
+  // ─── Raio/nível: SEMPRE da store (fonte única) ───
+  const atividadesMes = cidade?.atividadesMes ?? atividades.length
+  const nivelAtual = useMemo(() => calcularNivel(atividadesMes), [atividadesMes])
   const raioMapa = nivelAtual.raio
 
-  // ─── Edifícios derivados das atividades (mesma lógica da store) ───
+  // ─── Temporada ativa na store ───
+  const temporadaId = cidade?.temporadaAtualId
+  const temporada = temporadaId ? cidade?.temporadas?.[temporadaId] : null
+  const edificiosDaStore = temporada?.edificiosAtivos || null
+
+  // ─── Edifícios: prioridade store → fallback atividades ───
   const edificios = useMemo(() => {
+    // 1) Fonte preferida: temporada ativa da store
+    if (edificiosDaStore && Object.keys(edificiosDaStore).length > 0) {
+      return Object.values(edificiosDaStore).map((ed) => {
+        const visual = resolverVisualEdificio(ed.edificioNivel, ed.setor)
+        const modeloId = visual?.nome ? EDIFICIO_PARA_MODELO[visual.nome] : null
+        const modeloDef = modeloId ? MODELOS[modeloId] : null
+
+        return {
+          id: ed.id,
+          nome: visual?.nome ?? 'Edifício',
+          setor: ed.setor,
+          edificioNivel: ed.edificioNivel,
+          hexKey: ed.hexKey,
+          ehCluster: modeloDef?.tamanho === 7,
+          ehComposto: modeloDef?.tipo === 'composto',
+        }
+      })
+    }
+
+    // 2) Fallback: derivar das atividades (raro — só no primeiro render)
     const tipos = ['corrida', 'musculacao', 'caminhada']
     return atividades
-      .filter(a => tipos.includes(a.tipo))
+      .filter((a) => tipos.includes(a.tipo))
       .map((atividade, idx) => {
-        // ✅ FONTE ÚNICA — mesma função que a store usa
+        const {
+          edificioNivelPorAtividade,
+          setorPorAtividade,
+        } = require('../utils/atividades')
         const edificioNivel = edificioNivelPorAtividade(atividade)
         const setor = setorPorAtividade(atividade)
 
@@ -102,13 +149,14 @@ function MiniMapaCidade({ atividades }) {
           id: atividade.id ?? `atv-${idx}`,
           nome: visual.nome,
           setor,
-          edificioNivel,                     // ← nível correto (1-5)
+          edificioNivel,
+          hexKey: null,
           ehCluster: modeloDef?.tamanho === 7,
           ehComposto: modeloDef?.tipo === 'composto',
         }
       })
       .filter(Boolean)
-  }, [atividades])
+  }, [edificiosDaStore, atividades])
 
   // ─── HEX GRID ───
   const hexGrid = useMemo(() => {
@@ -118,27 +166,48 @@ function MiniMapaCidade({ atividades }) {
 
   const hexMap = useMemo(() => {
     const m = new Map()
-    hexGrid.forEach(h => m.set(`${h.q},${h.r}`, h))
+    hexGrid.forEach((h) => m.set(`${h.q},${h.r}`, h))
     return m
   }, [hexGrid])
 
   const edificioPorId = useMemo(() => {
     const m = new Map()
-    edificios.forEach(e => m.set(e.id, e))
+    edificios.forEach((e) => m.set(e.id, e))
     return m
   }, [edificios])
 
   // ─── POSICIONAMENTO ───
   const posicoes = useMemo(() => {
-    const gridKeys = new Set(hexGrid.map(h => `${h.q},${h.r}`))
+    const gridKeys = new Set(hexGrid.map((h) => `${h.q},${h.r}`))
     const ocupadas = new Set(['0,0'])
     const novas = {}
 
-    const keys = hexGrid.map(h => `${h.q},${h.r}`).sort((a, b) => {
-      const [aq, ar] = a.split(',').map(Number)
-      const [bq, br] = b.split(',').map(Number)
-      return (aq * aq + ar * ar) - (bq * bq + br * br)
+    // 1) Aproveita posições salvas da store
+    edificios.forEach((ed) => {
+      if (!ed.hexKey) return
+      if (ed.hexKey === '0,0') return
+      if (!gridKeys.has(ed.hexKey)) return
+      if (ocupadas.has(ed.hexKey)) return
+
+      novas[ed.hexKey] = ed.id
+      ocupadas.add(ed.hexKey)
+
+      if (ed.ehCluster) {
+        const [q, r] = ed.hexKey.split(',').map(Number)
+        vizinhosDeHex(q, r).forEach((vk) => {
+          if (vk !== '0,0') ocupadas.add(vk)
+        })
+      }
     })
+
+    // 2) Auto-organiza quem não tem hexKey
+    const keys = hexGrid
+      .map((h) => `${h.q},${h.r}`)
+      .sort((a, b) => {
+        const [aq, ar] = a.split(',').map(Number)
+        const [bq, br] = b.split(',').map(Number)
+        return (aq * aq + ar * ar) - (bq * bq + br * br)
+      })
 
     const proximoLivre = (pred = null) => {
       for (const k of keys) {
@@ -150,10 +219,14 @@ function MiniMapaCidade({ atividades }) {
       return null
     }
 
-    edificios.filter(e => e.ehCluster).forEach(ed => {
-      const central = proximoLivre(k => {
+    const idsJaAlocados = new Set(Object.values(novas))
+    const clusters = edificios.filter((e) => e.ehCluster && !idsJaAlocados.has(e.id))
+    const simples = edificios.filter((e) => !e.ehCluster && !idsJaAlocados.has(e.id))
+
+    clusters.forEach((ed) => {
+      const central = proximoLivre((k) => {
         const [cq, cr] = k.split(',').map(Number)
-        return vizinhosDeHex(cq, cr).every(vk => {
+        return vizinhosDeHex(cq, cr).every((vk) => {
           if (vk === '0,0') return false
           return !ocupadas.has(vk) && gridKeys.has(vk)
         })
@@ -162,13 +235,16 @@ function MiniMapaCidade({ atividades }) {
         const [cq, cr] = central.split(',').map(Number)
         novas[central] = ed.id
         ocupadas.add(central)
-        vizinhosDeHex(cq, cr).forEach(vk => vk !== '0,0' && ocupadas.add(vk))
+        vizinhosDeHex(cq, cr).forEach((vk) => vk !== '0,0' && ocupadas.add(vk))
       }
     })
 
-    edificios.filter(e => !e.ehCluster).forEach(ed => {
+    simples.forEach((ed) => {
       const pos = proximoLivre()
-      if (pos) { novas[pos] = ed.id; ocupadas.add(pos) }
+      if (pos) {
+        novas[pos] = ed.id
+        ocupadas.add(pos)
+      }
     })
 
     return novas
@@ -209,9 +285,10 @@ function MiniMapaCidade({ atividades }) {
 
   // ─── TILES ───
   const tilesToRender = useMemo(
-    () => hexGrid
-      .map(h => ({ hex: h, key: `${h.q},${h.r}` }))
-      .filter(({ key }) => key !== '0,0' && !satelites[key]),
+    () =>
+      hexGrid
+        .map((h) => ({ hex: h, key: `${h.q},${h.r}` }))
+        .filter(({ key }) => key !== '0,0' && !satelites[key]),
     [hexGrid, satelites]
   )
 
@@ -262,10 +339,9 @@ function MiniMapaCidade({ atividades }) {
 
 // =============================================
 // MAPA DE CALOR (Heatmap)
-// 🔥 Corrigido: usa `a.duracao` em vez de `a.tempo`
 // =============================================
 function MapaDeCalor({ dados = [] }) {
-  const max = Math.max(...dados.map(d => d.valor), 1)
+  const max = Math.max(...dados.map((d) => d.valor), 1)
 
   const ano = new Date().getFullYear()
   const mes = new Date().getMonth()
@@ -339,7 +415,6 @@ function BlocoMetaSemanal({
   dias = [],
   progressoMeta,
   metaSemanal,
-  proximoEdificio,
   metaBatida,
   recompensaJaColetada,
   onColetarRecompensa,
@@ -460,7 +535,6 @@ function BlocoMetaSemanal({
 
 // =============================================
 // CARD PEQUENO DE MODALIDADE
-// 🔥 Corrigido: usa `a.duracao` em vez de `a.tempo`
 // =============================================
 function CardModalidadePequeno({ tipo, dados, corConfig }) {
   const { cor, corBg1, corBg2 } = corConfig
@@ -529,7 +603,7 @@ function CardModalidadePequeno({ tipo, dados, corConfig }) {
           <div className="flex items-center gap-1">
             <Clock size={10} className="text-white/70" />
             <span className="text-[9px] text-white/70 font-semibold">
-              {Math.floor(totalTempo / 60)}h {totalTempo % 60}m
+              {formatarTempoCurto(totalTempo)}
             </span>
           </div>
         </div>
@@ -653,7 +727,7 @@ function CardModalidadeGrande({ tipo, dados, corConfig }) {
               <span className="text-[8px] text-white/60 uppercase font-bold tracking-wider">Total</span>
             </div>
             <span className="text-[11px] font-black text-white">
-              {Math.floor(totalTempo / 60)}h {totalTempo % 60}m
+              {formatarTempoCurto(totalTempo)}
             </span>
           </div>
         </div>
@@ -692,7 +766,7 @@ export default function ActivitiesScreen({
 
   // ── Hoje ──
   const atividadesHoje = useMemo(
-    () => atividades.filter(a => FILTRO_POR_PERIODO.hoje(a.data)),
+    () => atividades.filter((a) => FILTRO_POR_PERIODO.hoje(a.data)),
     [atividades]
   )
   const resumoHoje = useMemo(() => resumoDoPeriodo(atividadesHoje), [atividadesHoje])
@@ -702,21 +776,17 @@ export default function ActivitiesScreen({
 
   // ── Semana ──
   const atividadesSemana = useMemo(
-    () => atividades.filter(a => FILTRO_POR_PERIODO.semana(a.data)),
+    () => atividades.filter((a) => FILTRO_POR_PERIODO.semana(a.data)),
     [atividades]
   )
   const resumoSemana = useMemo(() => resumoDoPeriodo(atividadesSemana), [atividadesSemana])
 
   // ── Mês ──
   const atividadesMes = useMemo(
-    () => atividades.filter(a => FILTRO_POR_PERIODO.mes(a.data)),
+    () => atividades.filter((a) => FILTRO_POR_PERIODO.mes(a.data)),
     [atividades]
   )
   const resumoMes = useMemo(() => resumoDoPeriodo(atividadesMes), [atividadesMes])
-
-  // ── Nível ──
-  const nivelAtual = useMemo(() => calcularNivel(atividades.length), [atividades.length])
-  const proximoNivel = TABELA_NIVEIS[nivelAtual.nivel] || null
 
   // ── Dias da semana ──
   const diasDaSemana = useMemo(() => {
@@ -734,7 +804,7 @@ export default function ActivitiesScreen({
       const dataStr = data.toDateString()
 
       const atividadesDoDia = atividades.filter(
-        a => new Date(a.data).toDateString() === dataStr
+        (a) => new Date(a.data).toDateString() === dataStr
       )
       const xp = atividadesDoDia.reduce((acc, a) => acc + (a.moedas || 0), 0)
 
@@ -748,7 +818,6 @@ export default function ActivitiesScreen({
   }, [atividades])
 
   // ── Dados Gráfico Mensal ──
-  // 🔥 Corrigido: usa `a.duracao` em vez de `a.tempo`
   const dadosMesHeatmap = useMemo(() => {
     const agora = new Date()
     const diasNoMes = new Date(agora.getFullYear(), agora.getMonth() + 1, 0).getDate()
@@ -757,20 +826,19 @@ export default function ActivitiesScreen({
     for (let d = 1; d <= diasNoMes; d++) {
       const dataStr = new Date(agora.getFullYear(), agora.getMonth(), d).toDateString()
       const totalMin = atividades
-        .filter(a => new Date(a.data).toDateString() === dataStr)
-        .reduce((acc, a) => acc + (a.duracao || 0), 0)  // ← corrigido: duracao
+        .filter((a) => new Date(a.data).toDateString() === dataStr)
+        .reduce((acc, a) => acc + (a.duracao || 0), 0)
       dados.push({ dia: d, valor: totalMin })
     }
     return dados
   }, [atividades])
 
   // ── Desempenho por modalidade ──
-  // 🔥 Corrigido: usa `a.duracao` em vez de `a.tempo`
   const desempenho = useMemo(() => {
     const base = escopo === 'semana' ? atividadesSemana : atividadesMes
     const grupos = { corrida: [], musculacao: [], caminhada: [] }
 
-    base.forEach(a => {
+    base.forEach((a) => {
       if (grupos[a.tipo]) grupos[a.tipo].push(a)
     })
 
@@ -787,7 +855,7 @@ export default function ActivitiesScreen({
         }
       }
       const totalDist = lista.reduce((acc, a) => acc + (a.distancia || 0), 0)
-      const totalTempo = lista.reduce((acc, a) => acc + (a.duracao || 0), 0)  // ← corrigido
+      const totalTempo = lista.reduce((acc, a) => acc + (a.duracao || 0), 0)
       const totalCalorias = lista.reduce((acc, a) => acc + (a.calorias || 0), 0)
       return {
         qtd: lista.length,
@@ -921,7 +989,7 @@ export default function ActivitiesScreen({
               <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 min-w-0">
                 <Clock size={14} className="text-orange-400 shrink-0" />
                 <span className="text-xs font-bold truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                  {Math.floor(resumoHoje.tempo / 60)}h {resumoHoje.tempo % 60}min
+                  {formatarTempo(resumoHoje.duracao)}
                 </span>
               </div>
               <div className="w-px bg-white/10 my-2" />
@@ -962,7 +1030,9 @@ export default function ActivitiesScreen({
           <div className="grid grid-cols-4 gap-2 mb-4">
             <div className="bg-black/20 rounded-xl p-2 flex flex-col items-center">
               <Clock size={14} className="text-[#F27405] mb-1" />
-              <span className="text-[11px] font-black">{Math.floor(resumoSemana.tempo / 60)}h {resumoSemana.tempo % 60}m</span>
+              <span className="text-[11px] font-black">
+                {formatarTempoCurto(resumoSemana.duracao)}
+              </span>
               <span className="text-[8px] text-white/50">Tempo</span>
             </div>
             <div className="bg-black/20 rounded-xl p-2 flex flex-col items-center">
@@ -986,7 +1056,6 @@ export default function ActivitiesScreen({
             dias={diasDaSemana}
             progressoMeta={progressoMeta}
             metaSemanal={META_SEMANAL_ATIVIDADES}
-            proximoEdificio="—"
             metaBatida={metaSemanalBatida}
             recompensaJaColetada={recompensaJaColetada}
             onColetarRecompensa={handleColetarRecompensa}
@@ -1008,11 +1077,13 @@ export default function ActivitiesScreen({
           <div className="flex items-center gap-4 mb-3">
             <div>
               <p className="text-[9px] text-white/50 uppercase tracking-wider font-bold">Dias Ativos</p>
-              <p className="text-lg font-black">{dadosMesHeatmap.filter(d => d.valor > 0).length}</p>
+              <p className="text-lg font-black">{dadosMesHeatmap.filter((d) => d.valor > 0).length}</p>
             </div>
             <div>
               <p className="text-[9px] text-white/50 uppercase tracking-wider font-bold">Tempo Total</p>
-              <p className="text-lg font-black">{Math.floor(resumoMes.tempo / 60)}h {resumoMes.tempo % 60}m</p>
+              <p className="text-lg font-black">
+                {formatarTempoCurto(resumoMes.duracao)}
+              </p>
             </div>
             <div>
               <p className="text-[9px] text-white/50 uppercase tracking-wider font-bold">Calorias</p>

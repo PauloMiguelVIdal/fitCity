@@ -1,65 +1,51 @@
 // src/screens/CityScreen.jsx
 import { useState, useMemo, useCallback } from 'react'
-import { Plus, Minus, LocateFixed, Building2, ChevronRight, TrendingUp, Award,Trophy } from 'lucide-react'
+import { TrendingUp, Trophy } from 'lucide-react'
 import AtividadeVinculadaSheet from '../components/AtividadeVinculadaSheet'
-
-
-
 import CityConquers from '../components/Citys/CityConquers'
 import CityProgress from '../components/Citys/ProgressCity'
+import { useFitCityStore } from '../store/fitCityStore'
 
-// =============================================
-// COMPONENTE PRINCIPAL
-// =============================================
-export default function CityScreen({ atividades = [] }) {
+export default function CityScreen() {
   const [aba, setAba] = useState('conquista')
   const [atividadeSelecionada, setAtividadeSelecionada] = useState(null)
-  const nivel = 5
-  
-  // Dados mock para a cidade
-  const dadosCidade = useMemo(() => ({
-    nivel: 5,
-    progresso: 320,
-    meta: 500,
-    totalCartas: 30,
-    metaCartas: 100,
-    kcalTotais: 1250,
-    tempoAtivo: '12h 30min',
-    distanciaTotal: '52,6 km',
-    edificiosConstruidos: 87,
-    ultimasAtividades: [
-      { tipo: 'corrida', distancia: '8,2 km', kcal: 482, pontos: 80 },
-      { tipo: 'musculacao', tempo: '1h 20min', kcal: 430, pontos: 60 },
-      { tipo: 'caminhada', distancia: '4,3 km', kcal: 210, pontos: 40 },
-    ]
-  }), [])
+
+  // Nível da cidade progresso (a conquista tem seu próprio nível, calculado dentro dela)
+  const nivelCidade = useFitCityStore((s) => s.cidade.nivel)
+
+  // Título dinâmico
+  const titulo = useMemo(
+    () => (aba === 'conquista' ? 'Cidade Conquista' : 'Cidade Progresso'),
+    [aba]
+  )
+  const subtitulo = useMemo(
+    () =>
+      aba === 'conquista'
+        ? 'Sua cidade construída com suas cartas'
+        : 'Sua cidade em evolução constante',
+    [aba]
+  )
 
   return (
     <div className="relative px-4 pt-6 flex flex-col gap-4 text-white min-h-screen">
       <div className="pointer-events-none absolute -top-10 right-0 w-64 h-64 rounded-full bg-fitcity-accent/25 blur-[80px]" />
 
-      {/* Header com nome da cidade e nível */}
+      {/* Header */}
       <div className="relative flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">
-            {aba === 'conquista' ? 'Cidade Conquista' : 'Cidade Progresso'}
-          </h1>
-          <p className="text-xs text-white/40 mt-0.5">
-            {aba === 'conquista' 
-              ? 'Sua cidade construída com suas cartas' 
-              : 'Sua cidade em evolução constante'}
-          </p>
+          <h1 className="text-xl font-bold">{titulo}</h1>
+          <p className="text-xs text-white/40 mt-0.5">{subtitulo}</p>
         </div>
         <span className="bg-white/10 backdrop-blur-xl border border-white/10 text-xs font-semibold px-3 py-1.5 rounded-full shadow-md">
-          Nível {dadosCidade.nivel}
+          Nível {nivelCidade}
         </span>
       </div>
 
-      {/* Abas de navegação */}
+      {/* Abas */}
       <div className="relative flex bg-white/5 backdrop-blur-xl border border-white/10 rounded-full p-1 shadow-inner">
         {[
           { id: 'conquista', label: 'Conquista', icon: Trophy },
-          { id: 'progresso', label: 'Progresso', icon: TrendingUp }
+          { id: 'progresso', label: 'Progresso', icon: TrendingUp },
         ].map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -76,26 +62,18 @@ export default function CityScreen({ atividades = [] }) {
         ))}
       </div>
 
-      {/* Conteúdo da aba selecionada */}
+      {/* Conteúdo */}
       <div className="flex-1">
         {aba === 'conquista' ? (
-          <CityConquers 
-            atividades={atividades}
-            dadosCidade={dadosCidade}
-            onSelecionarAtividade={setAtividadeSelecionada}
-          />
+          <CityConquers onSelecionarAtividade={setAtividadeSelecionada} />
         ) : (
-          <CityProgress 
-            atividades={atividades}
-            dadosCidade={dadosCidade}
-            onSelecionarAtividade={setAtividadeSelecionada}
-          />
+          <CityProgress onSelecionarAtividade={setAtividadeSelecionada} />
         )}
       </div>
 
-      <AtividadeVinculadaSheet 
-        atividade={atividadeSelecionada} 
-        onClose={() => setAtividadeSelecionada(null)} 
+      <AtividadeVinculadaSheet
+        atividade={atividadeSelecionada}
+        onClose={() => setAtividadeSelecionada(null)}
       />
     </div>
   )
