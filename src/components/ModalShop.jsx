@@ -309,8 +309,8 @@ export const ModalShop = ({ onCancelar }) => {
     return (
       <div>
         {renderSecao('PACOTES PRINCIPAIS', principais, '(POPULAR)')}
-        {renderSecao('PACOTES SETORIAIS', setoriais, '(Cartas direcionadas por área urbana)')}
-        {renderSecao('CUSTOMIZAÇÃO & EXPANSÕES', customizacao, '(Exposição dos Prédios e Skins)')}
+        {/* {renderSecao('PACOTES SETORIAIS', setoriais, '(Cartas direcionadas por área urbana)')} */}
+        {/* {renderSecao('CUSTOMIZAÇÃO & EXPANSÕES', customizacao, '(Exposição dos Prédios e Skins)')} */}
       </div>
     )
   }
