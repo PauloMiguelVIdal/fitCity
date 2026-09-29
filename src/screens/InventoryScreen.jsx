@@ -1,5 +1,5 @@
 // src/screens/InventoryScreen.jsx
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   Sprout, Cpu, Factory, Store, Building2, Zap, Package,
   LayoutGrid, Gem, ArrowDownWideNarrow, Lock, Unlock,
@@ -268,7 +268,11 @@ export default function InventoryScreen() {
   // ─── Store ───
   const catalogo = useFitCityStore((s) => s.catalogo)
   const inventario = useFitCityStore((s) => s.inventario)
+const limparNotificacao = useFitCityStore((s) => s.limparNotificacao)
 
+useEffect(() => {
+  limparNotificacao('inventario')
+}, [limparNotificacao])
   const cartasCatalogo = catalogo?.cartas || {}
   const cartasInventario = inventario?.cartas || {}
   const raridadesConfig = catalogo?.raridades || {}
