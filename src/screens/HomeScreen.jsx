@@ -224,6 +224,8 @@ export default function HomeScreen({
       {/* ═══════════════════════════════════════════════════════ */}
       {/* HEADER — CIDADE + MAPA (alimentado pelo hook) */}
       {/* ═══════════════════════════════════════════════════════ */}
+      colocar icons no icones de navegação,
+      colocar sistema de navegação via zustand
       <div className="relative flex items-center justify-between z-10 gap-2 w-full">
         <div className="relative w-full bg-fitcity-surface/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(100,17,217,0.35)] z-10">
           <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-fitcity-accent/30 blur-[80px]" />
@@ -231,28 +233,28 @@ export default function HomeScreen({
           {/* 🔥 Mapa 3D — alimentado com os mesmos dados do CidadePatrimonio */}
           <div className="absolute w-full inset-0 opacity-95 flex items-center justify-center pointer-events-none">
             {patrimonio.temCartas ? (
-<MapWorldFitCity
-  porte={patrimonio.porte}
-  edificiosAtivos={patrimonio.edificiosAtivos}
-  posicoes={patrimonio.posicoes}
-  satelites={patrimonio.satelites}
-  tilesToRender={patrimonio.tilesToRender}
-  hexMap={patrimonio.hexMap}
-  edificioPorId={patrimonio.edificioPorId}
+              <MapWorldFitCity
+                porte={patrimonio.porte}
+                edificiosAtivos={patrimonio.edificiosAtivos}
+                posicoes={patrimonio.posicoes}
+                satelites={patrimonio.satelites}
+                tilesToRender={patrimonio.tilesToRender}
+                hexMap={patrimonio.hexMap}
+                edificioPorId={patrimonio.edificioPorId}
 
-  // 🔥 Câmera top-down da Activities
-  cameraPosition={[2.8, 3, 2.8]}
-  cameraFov={35}
-  cameraTarget={[3, 3, 3]}
-  minDistance={6}
-  maxDistance={18}
-  minPolarAngle={Math.PI / 8}
-  maxPolarAngle={Math.PI / 2.2}
-  autoRotate={true}
-  dayProgress={0.6} 
-  minimalist={true}
-  disableControls={true}
-/>
+                // 🔥 Câmera top-down da Activities
+                cameraPosition={[2.8, 3, 2.8]}
+                cameraFov={35}
+                cameraTarget={[3, 3, 3]}
+                minDistance={6}
+                maxDistance={18}
+                minPolarAngle={Math.PI / 8}
+                maxPolarAngle={Math.PI / 2.2}
+                autoRotate={true}
+                dayProgress={0.6}
+                minimalist={true}
+                disableControls={true}
+              />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center px-6 opacity-60">
                 <Building2 size={32} className="text-white/30" />
@@ -385,11 +387,10 @@ export default function HomeScreen({
 
       {/* META DA SEMANA */}
       <div
-        className={`relative rounded-3xl p-3 sm:p-4 z-10 overflow-hidden border shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${
-          metaSemanalBatida
+        className={`relative rounded-3xl p-3 sm:p-4 z-10 overflow-hidden border shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${metaSemanalBatida
             ? 'bg-gradient-to-br from-[#F27405]/35 to-[#6411D9]/55 border-[#6411D9]/35'
             : 'bg-[#1E0A3C]/55 border-purple-500/20'
-        }`}
+          }`}
       >
         <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full bg-purple-600/20 blur-[60px] pointer-events-none" />
 
@@ -410,13 +411,12 @@ export default function HomeScreen({
             type="button"
             disabled={!metaSemanalBatida || recompensaJaColetada}
             onClick={handleColetarRecompensa}
-            className={`rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5 transition-all ${
-              recompensaJaColetada
+            className={`rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5 transition-all ${recompensaJaColetada
                 ? 'bg-[#6411D9] border border-[#6411D9]/40 cursor-default'
                 : metaSemanalBatida
                   ? 'bg-gradient-to-br from-[#F27405] to-[#6411D9] shadow-[0_4px_15px_rgba(242,116,5,0.55)] hover:scale-105 active:scale-95 cursor-pointer animate-pulse'
                   : 'bg-gradient-to-br from-orange-500 to-orange-600 opacity-60 cursor-not-allowed'
-            }`}
+              }`}
             title={
               recompensaJaColetada
                 ? 'Recompensa já coletada esta semana'
@@ -446,11 +446,10 @@ export default function HomeScreen({
 
         <div className="w-full h-1.5 bg-black/50 rounded-full mb-3 sm:mb-4 overflow-hidden relative z-10 border border-white/10">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${
-              metaSemanalBatida
+            className={`h-full rounded-full transition-all duration-500 ${metaSemanalBatida
                 ? 'bg-gradient-to-r from-[#6411D9] via-[#F27405] to-orange-600 shadow-[0_0_10px_rgba(100,17,217,0.7)]'
                 : 'bg-gradient-to-r from-[#350973] to-[#F27405] shadow-[0_0_8px_rgba(242,116,5,0.5)]'
-            }`}
+              }`}
             style={{ width: `${(progressoSemanal / META_SEMANAL_ATIVIDADES) * 100}%` }}
           />
         </div>
@@ -460,11 +459,10 @@ export default function HomeScreen({
             <div key={index} className="flex flex-col items-center gap-1 flex-1 min-w-0">
               <div className="relative">
                 <div
-                  className={`w-7 h-7 xs:w-8 xs:h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-[10px] xs:text-xs sm:text-sm transition-all ${
-                    item.concluido
+                  className={`w-7 h-7 xs:w-8 xs:h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-[10px] xs:text-xs sm:text-sm transition-all ${item.concluido
                       ? 'bg-gradient-to-br from-[#F27405] to-orange-600 text-white shadow-[0_4px_15px_rgba(242,116,5,0.5)]'
                       : 'bg-purple-900/40 text-purple-300/50 border border-purple-500/20'
-                  }`}
+                    }`}
                 >
                   {item.dia}
                 </div>
@@ -482,14 +480,12 @@ export default function HomeScreen({
               <div className="flex items-center gap-0.5">
                 <Coins
                   size={8}
-                  className={`sm:w-[10px] sm:h-[10px] ${
-                    item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'
-                  }`}
+                  className={`sm:w-[10px] sm:h-[10px] ${item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'
+                    }`}
                 />
                 <span
-                  className={`text-[8px] xs:text-[9px] sm:text-[10px] font-bold ${
-                    item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'
-                  }`}
+                  className={`text-[8px] xs:text-[9px] sm:text-[10px] font-bold ${item.concluido ? 'text-[#F27405]' : 'text-purple-400/30'
+                    }`}
                 >
                   {item.concluido ? `+${item.xp}` : '-'}
                 </span>
