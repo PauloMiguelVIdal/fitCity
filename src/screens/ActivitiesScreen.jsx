@@ -15,7 +15,7 @@ import MapWorldActivities from '../components/MapWorldActivities'
 import MapLoadingOverlay from '../components/MapLoadingOverlay'
 import { MODELOS, EDIFICIO_PARA_MODELO } from '../components/BuildingModels'
 import { resolverVisualEdificio } from '../data/edificiosVisual'
-import { useFitCityStore } from '../store/fitCityStore'
+import { useFitCityStore } from '../store/fitcityStore'
 
 const META_DIARIA_KCAL = 600
 const META_SEMANAL_ATIVIDADES = 5

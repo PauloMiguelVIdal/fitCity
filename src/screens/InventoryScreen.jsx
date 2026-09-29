@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import CardMinimal from '../components/CardMinimal'
 import CardColection from '../components/CardColection'
-import { useFitCityStore } from '../store/fitCityStore'
+import { useFitCityStore } from '../store/fitcityStore'
 
 // =============================================
 // CONFIGURAÇÃO DOS SETORES (visual)
@@ -98,7 +98,7 @@ const calcularProgresso = (raridade, quantidade, raridadesConfig) => {
 // =============================================
 // CÉLULA DA CARTA
 // =============================================
-const CartaCell = ({ carta, onExpand, raridadesConfig }) => {
+const CartaCell = ({ carta, onExpand, raridadesConfig, isNova }) => {
   const config = SETORES_CONFIG[carta.setor] || SETORES_CONFIG.outros
   const raridade = carta.raridade
   const qtd = carta.quantidade || 0
@@ -107,6 +107,8 @@ const CartaCell = ({ carta, onExpand, raridadesConfig }) => {
   const prog = calcularProgresso(raridade, qtd, raridadesConfig)
   const corRaridade = RARIDADE_COR[raridade] || RARIDADE_COR.comum
   const pct = Math.min(100, (prog.progressoAtual / prog.progressoMaximo) * 100)
+
+  const realmenteNova = !!isNova && !bloqueada
 
   return (
     <div className="relative w-full">
@@ -128,6 +130,7 @@ const CartaCell = ({ carta, onExpand, raridadesConfig }) => {
             cor3={config.cor3}
             cor4={config.cor4}
             onExpand={() => onExpand(carta)}
+            isNova={realmenteNova}
           />
 
           {/* Dot de setor */}
@@ -268,11 +271,14 @@ export default function InventoryScreen() {
   // ─── Store ───
   const catalogo = useFitCityStore((s) => s.catalogo)
   const inventario = useFitCityStore((s) => s.inventario)
-const limparNotificacao = useFitCityStore((s) => s.limparNotificacao)
+  const cartasNovas = useFitCityStore((s) => s.cartasNovas)
+  const limparNotificacao = useFitCityStore((s) => s.limparNotificacao)
+  const marcarCartaVista = useFitCityStore((s) => s.marcarCartaVista)
 
-useEffect(() => {
-  limparNotificacao('inventario')
-}, [limparNotificacao])
+  useEffect(() => {
+    limparNotificacao('inventario')
+  }, [limparNotificacao])
+
   const cartasCatalogo = catalogo?.cartas || {}
   const cartasInventario = inventario?.cartas || {}
   const raridadesConfig = catalogo?.raridades || {}
@@ -289,9 +295,10 @@ useEffect(() => {
         setor: carta.setor,
         rank: carta.rank,
         quantidade,
+        isNova: !!cartasNovas?.[carta.id] && quantidade > 0,
       }
     })
-  }, [cartasCatalogo, cartasInventario])
+  }, [cartasCatalogo, cartasInventario, cartasNovas])
 
   // ─── Contadores ───
   const totalDescobertas = useMemo(
@@ -299,6 +306,10 @@ useEffect(() => {
     [cartasProcessadas]
   )
   const totalCartas = cartasProcessadas.length
+  const totalNovas = useMemo(
+    () => cartasProcessadas.filter((c) => c.isNova).length,
+    [cartasProcessadas]
+  )
 
   // ─── Filtro + Ordenação ───
   const cartasFiltradas = useMemo(() => {
@@ -313,6 +324,8 @@ useEffect(() => {
 
     const ordemRaridade = { lendario: 0, epico: 1, raro: 2, comum: 3, incomum: 4 }
     filtradas = [...filtradas].sort((a, b) => {
+      if (a.isNova !== b.isNova) return a.isNova ? -1 : 1
+
       if (ordenarPor === 'quantidade') {
         if (b.quantidade !== a.quantidade) return b.quantidade - a.quantidade
         return (ordemRaridade[a.raridade] ?? 99) - (ordemRaridade[b.raridade] ?? 99)
@@ -338,6 +351,14 @@ useEffect(() => {
     ? SETORES_CONFIG[cartaExpandida.setor] || SETORES_CONFIG.outros
     : null
 
+  // Ao expandir, marca como vista
+  const handleExpand = useCallback((carta) => {
+    setCartaExpandidaId(carta.id)
+    if (carta.isNova) {
+      marcarCartaVista(carta.id)
+    }
+  }, [marcarCartaVista])
+
   return (
     <div
       className="relative text-white flex flex-col"
@@ -349,20 +370,44 @@ useEffect(() => {
       {/* HEADER */}
       <div className="relative flex items-center justify-between px-4 pt-5 pb-1.5" style={{ flexShrink: 0 }}>
         <h1 className="text-xl font-bold">Inventário</h1>
-        <div
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-          style={{
-            background: 'rgba(255,255,255,0.06)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            fontSize: 11,
-            fontWeight: 800,
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          <Gem size={12} color="#c4b5fd" />
-          <span style={{ color: '#fff' }}>{totalDescobertas}</span>
-          <span style={{ color: 'rgba(255,255,255,0.45)' }}>/</span>
-          <span style={{ color: 'rgba(255,255,255,0.65)' }}>{totalCartas}</span>
+        <div className="flex items-center gap-1.5">
+          {totalNovas > 0 && (
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+              style={{
+                background: 'linear-gradient(135deg, rgba(147,51,234,0.35), rgba(217,70,239,0.35))',
+                border: '1px solid rgba(217,70,239,0.6)',
+                fontSize: 11,
+                fontWeight: 800,
+                color: '#f0abfc',
+                boxShadow: '0 0 14px rgba(168,85,247,0.5)',
+              }}
+            >
+              <span
+                style={{
+                  width: 6, height: 6, borderRadius: '50%',
+                  background: '#e879f9',
+                  boxShadow: '0 0 8px #e879f9',
+                }}
+              />
+              {totalNovas} nova{totalNovas > 1 ? 's' : ''}
+            </div>
+          )}
+          <div
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+            style={{
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              fontSize: 11,
+              fontWeight: 800,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            <Gem size={12} color="#c4b5fd" />
+            <span style={{ color: '#fff' }}>{totalDescobertas}</span>
+            <span style={{ color: 'rgba(255,255,255,0.45)' }}>/</span>
+            <span style={{ color: 'rgba(255,255,255,0.65)' }}>{totalCartas}</span>
+          </div>
         </div>
       </div>
 
@@ -423,8 +468,9 @@ useEffect(() => {
                 <CartaCell
                   key={carta.id}
                   carta={carta}
-                  onExpand={(c) => setCartaExpandidaId(c.id)}
+                  onExpand={handleExpand}
                   raridadesConfig={raridadesConfig}
+                  isNova={carta.isNova}
                 />
               ))}
             </div>

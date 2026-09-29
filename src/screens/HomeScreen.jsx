@@ -26,7 +26,7 @@ import {
   resumoDoPeriodo,
 } from '../utils/atividades'
 import { ModalShop } from '../components/ModalShop'
-import { useFitCityStore } from '../store/fitCityStore'
+import { useFitCityStore } from '../store/fitcityStore'
 import { usePatrimonioMap } from '../hooks/usePatrimônioMap'
 
 // ============================================================

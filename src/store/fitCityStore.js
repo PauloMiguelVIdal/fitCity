@@ -55,13 +55,18 @@ const initialState = {
     avatarUrl: null,
     criadoEm: null,
   },
-notificacoes: {
-  home:false,
-  inventario: false,
-  atividades: false,
-  cidade: false,
-  perfil: false,
-},
+
+  notificacoes: {
+    home: false,
+    inventario: false,
+    atividades: false,
+    cidade: false,
+    perfil: false,
+  },
+
+  // ⬇️ Fora de notificacoes — topo do estado
+  cartasNovas: {}, // { [cartaId]: true }
+
   progressao: {
     xp: 0,
     sequenciaDias: 0,
@@ -88,11 +93,7 @@ notificacoes: {
     raio: 3,
     atividadesMes: 0,
     nivelExpandido: 1,
-
-    // Fluxo A: Patrimônio
     posicoesPatrimonio: {},
-
-    // Fluxo B: Progresso
     temporadas: {},
   },
 
@@ -155,6 +156,8 @@ export const useFitCityStore = create(
         inventario: initialState.inventario,
         cidade: initialState.cidade,
         social: initialState.social,
+        notificacoes: initialState.notificacoes,
+        cartasNovas: {},
       })),
 
       // ═══════════════════════════════════════════════════════
@@ -366,22 +369,34 @@ export const useFitCityStore = create(
       // 4. INVENTÁRIO
       // ═══════════════════════════════════════════════════════
 
-adicionarCarta: (cartaId, quantidade = 1) => set((s) => {
-  const atual = s.inventario.cartas[cartaId] || { cartaId, quantidade: 0 }
-  const eraNova = atual.quantidade === 0
-  return {
-    inventario: {
-      ...s.inventario,
-      cartas: {
-        ...s.inventario.cartas,
-        [cartaId]: { ...atual, quantidade: atual.quantidade + quantidade },
-      },
-    },
-    notificacoes: eraNova
-      ? { ...s.notificacoes, inventario: true }
-      : s.notificacoes,
-  }
-}),
+      adicionarCarta: (cartaId, quantidade = 1) => set((s) => {
+        const atual = s.inventario.cartas[cartaId] || { cartaId, quantidade: 0 }
+        const eraNova = atual.quantidade === 0
+        return {
+          inventario: {
+            ...s.inventario,
+            cartas: {
+              ...s.inventario.cartas,
+              [cartaId]: { ...atual, quantidade: atual.quantidade + quantidade },
+            },
+          },
+          notificacoes: eraNova
+            ? { ...s.notificacoes, inventario: true }
+            : s.notificacoes,
+          cartasNovas: eraNova
+            ? { ...s.cartasNovas, [cartaId]: true }
+            : s.cartasNovas,
+        }
+      }),
+
+      marcarCartaVista: (cartaId) => set((s) => {
+        if (!s.cartasNovas?.[cartaId]) return s
+        const novas = { ...s.cartasNovas }
+        delete novas[cartaId]
+        return { cartasNovas: novas }
+      }),
+
+      limparCartasNovas: () => set(() => ({ cartasNovas: {} })),
 
       removerCarta: (cartaId, quantidade = 1) => set((s) => {
         const atual = s.inventario.cartas[cartaId]
@@ -417,21 +432,28 @@ adicionarCarta: (cartaId, quantidade = 1) => set((s) => {
         const debitou = get().gastarMoedas(pacote.preco, 'compra_pacote', pacoteId)
         if (!debitou) return { sucesso: false, motivo: 'erro_debito' }
 
-set((s) => {
-  const novasCartas = { ...s.inventario.cartas }
-  let teveCartaNova = false
-  cartasSorteadas.forEach((cartaId) => {
-    const atual = novasCartas[cartaId] || { cartaId, quantidade: 0 }
-    if (atual.quantidade === 0) teveCartaNova = true
-    novasCartas[cartaId] = { ...atual, quantidade: atual.quantidade + 1 }
-  })
-  return {
-    inventario: { ...s.inventario, cartas: novasCartas },
-    notificacoes: teveCartaNova
-      ? { ...s.notificacoes, inventario: true }
-      : s.notificacoes,
-  }
-})
+        set((s) => {
+          const novasCartas = { ...s.inventario.cartas }
+          const novasFlags = { ...s.cartasNovas }
+          let teveCartaNova = false
+
+          cartasSorteadas.forEach((cartaId) => {
+            const atual = novasCartas[cartaId] || { cartaId, quantidade: 0 }
+            if (atual.quantidade === 0) {
+              teveCartaNova = true
+              novasFlags[cartaId] = true
+            }
+            novasCartas[cartaId] = { ...atual, quantidade: atual.quantidade + 1 }
+          })
+
+          return {
+            inventario: { ...s.inventario, cartas: novasCartas },
+            cartasNovas: novasFlags,
+            notificacoes: teveCartaNova
+              ? { ...s.notificacoes, inventario: true }
+              : s.notificacoes,
+          }
+        })
 
         return { sucesso: true, cartas: cartasSorteadas }
       },
@@ -615,21 +637,23 @@ set((s) => {
       setLoading: (loading) => set((s) => ({ ui: { ...s.ui, loading } })),
       setErro: (erro) => set((s) => ({ ui: { ...s.ui, erro } })),
 
-// ═══════════════════════════════════════════════════════
-// 9.1 NOTIFICAÇÕES DE TAB
-// ═══════════════════════════════════════════════════════
+      // ═══════════════════════════════════════════════════════
+      // 9.1 NOTIFICAÇÕES DE TAB
+      // ═══════════════════════════════════════════════════════
 
-marcarNotificacao: (tab) => set((s) => ({
-  notificacoes: { ...s.notificacoes, [tab]: true },
-})),
+      marcarNotificacao: (tab) => set((s) => ({
+        notificacoes: { ...s.notificacoes, [tab]: true },
+      })),
 
-limparNotificacao: (tab) => set((s) => ({
-  notificacoes: { ...s.notificacoes, [tab]: false },
-})),
+      limparNotificacao: (tab) => set((s) => ({
+        notificacoes: { ...s.notificacoes, [tab]: false },
+      })),
 
-limparTodasNotificacoes: () => set(() => ({
-  notificacoes: { inventario: false, atividades: false, cidade: false },
-})),
+      limparTodasNotificacoes: () => set((s) => ({
+        notificacoes: Object.fromEntries(
+          Object.keys(s.notificacoes).map((k) => [k, false])
+        ),
+      })),
 
       // ═══════════════════════════════════════════════════════
       // 10. HELPERS INTERNOS
@@ -760,28 +784,46 @@ limparTodasNotificacoes: () => set(() => ({
     }),
     {
       name: 'fitcity-storage',
-      version: 3,   // ← bump por remoção de campos
+      version: 4, // ⬅️ bump para forçar migrate
       storage: createJSONStorage(() => localStorage),
-partialize: (state) => ({
-  user: state.user,
-  progressao: state.progressao,
-  economia: state.economia,
-  atividades: state.atividades,
-  inventario: state.inventario,
-  cidade: state.cidade,
-  social: state.social,
-  notificacoes: state.notificacoes,
-}),
-migrate: (persisted, version) => {
-  if (persisted?.cidade) {
-    delete persisted.cidade.pacoteVisualAtivo
-    delete persisted.cidade.pacotesVisuaisDesbloqueados
-  }
-  if (!persisted.notificacoes) {
-    persisted.notificacoes = { inventario: false, atividades: false, cidade: false }
-  }
-  return persisted
-},
+
+      partialize: (state) => ({
+        user: state.user,
+        progressao: state.progressao,
+        economia: state.economia,
+        atividades: state.atividades,
+        inventario: state.inventario,
+        cidade: state.cidade,
+        social: state.social,
+        notificacoes: state.notificacoes,
+        cartasNovas: state.cartasNovas,
+      }),
+
+      migrate: (persisted) => {
+        if (!persisted) return persisted
+
+        if (persisted.cidade) {
+          delete persisted.cidade.pacoteVisualAtivo
+          delete persisted.cidade.pacotesVisuaisDesbloqueados
+        }
+
+        const antigas = persisted.notificacoes?.cartasNovas
+        persisted.cartasNovas = persisted.cartasNovas || antigas || {}
+
+        persisted.notificacoes = {
+          home: false,
+          inventario: false,
+          atividades: false,
+          cidade: false,
+          perfil: false,
+          ...(persisted.notificacoes || {}),
+        }
+
+        delete persisted.notificacoes.cartasNovas
+
+        return persisted
+      },
+
       onRehydrateStorage: () => (state) => {
         if (state) state.verificarViradaDeMes()
       },

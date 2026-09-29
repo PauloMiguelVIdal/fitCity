@@ -45,6 +45,32 @@ const ARMAZENAMENTO = [
 ];
 
 // ============================================================
+// KEYFRAMES "NOVA" — declarados uma vez, fora do componente
+// ============================================================
+const NOVA_KEYFRAMES = `
+  @keyframes fcNovaAuraInset {
+    0%, 100% {
+      box-shadow:
+        inset 0 0 0 2px rgba(217,70,239,0.9),
+        inset 0 0 10px rgba(168,85,247,0.5);
+    }
+    50% {
+      box-shadow:
+        inset 0 0 0 2px rgba(217,70,239,0.4),
+        inset 0 0 18px rgba(168,85,247,0.9);
+    }
+  }
+  @keyframes fcNovaBadgePulse {
+    0%, 100% { transform: translateY(0)    scale(1);    }
+    50%      { transform: translateY(-1px) scale(1.08); }
+  }
+  @keyframes fcNovaShine {
+    0%   { background-position:   0% 50%; }
+    100% { background-position: 200% 50%; }
+  }
+`;
+
+// ============================================================
 // CARD MINIMAL
 // ============================================================
 const CardMinimal = memo(function CardMinimal({
@@ -57,6 +83,7 @@ const CardMinimal = memo(function CardMinimal({
   cor3 = "#808080",
   cor4 = "#B3B3B3",
   onExpand,
+  isNova = false,
 }) {
   // ── RARIDADE + POWER-UP ───────────────────────────────────
   const raridadeBase = RARIDADE_POWERUP[raridade] ? raridade : "comum";
@@ -182,18 +209,35 @@ const CardMinimal = memo(function CardMinimal({
         WebkitTapHighlightColor: "transparent",
       }}
     >
-      {/* Botão fullscreen — sempre clicável, acima de qualquer overlay do pai */}
+      {/* Keyframes "NOVA" — declarados uma única vez por instância renderizada */}
+      {isNova && <style>{NOVA_KEYFRAMES}</style>}
+
+      {/* ====== ANEL DE AURA "NOVA" (inset, não cobre o card) ====== */}
+      {isNova && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "inherit",
+            pointerEvents: "none",
+            zIndex: 50,
+            animation: "fcNovaAuraInset 2.4s ease-in-out infinite",
+          }}
+        />
+      )}
+
+      {/* Botão fullscreen */}
       {onExpand && (
         <button
           type="button"
-          
           onPointerDown={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
           style={{
             position: "absolute",
             top: 4, left: 4,
-            zIndex: 30,                    // 🔑 acima do dot do setor (40) e de qualquer overlay
+            zIndex: 30,
             width: 22, height: 22,
             borderRadius: 6,
             border: "1px solid rgba(255,255,255,0.22)",
@@ -206,14 +250,47 @@ const CardMinimal = memo(function CardMinimal({
             justifyContent: "center",
             padding: 0,
             lineHeight: 1,
-            pointerEvents: "auto",          // 🔑 garante que recebe o clique
+            pointerEvents: "auto",
             WebkitTapHighlightColor: "transparent",
-            touchAction: "manipulation",    // 🔑 evita delay de 300ms em mobile
+            touchAction: "manipulation",
           }}
           aria-label="Expandir carta"
         >
           <Maximize2 size={11} color="#fff" />
         </button>
+      )}
+
+      {/* ====== SELO "NOVA" (canto superior direito) ====== */}
+      {isNova && (
+        <div
+          aria-label="Carta nova"
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 4,
+            zIndex: 50,
+            padding: "2px 8px",
+            borderRadius: 999,
+            background:
+              "linear-gradient(90deg, #7c3aed, #a855f7, #d946ef, #a855f7, #7c3aed)",
+            backgroundSize: "200% 100%",
+            animation:
+              "fcNovaBadgePulse 1.6s ease-in-out infinite, fcNovaShine 3s linear infinite",
+            color: "#fff",
+            fontSize: 8,
+            fontWeight: 900,
+            letterSpacing: 0.6,
+            textShadow: "0 1px 2px rgba(0,0,0,0.55)",
+            border: "1px solid rgba(255,255,255,0.55)",
+            boxShadow:
+              "0 0 0 2px rgba(10,10,15,0.85), 0 2px 10px rgba(217,70,239,1), 0 0 16px rgba(168,85,247,0.9)",
+            pointerEvents: "none",
+            lineHeight: 1,
+            whiteSpace: "nowrap",
+          }}
+        >
+          ✦ NOVA
+        </div>
       )}
 
       {/* ===== Área superior: imagem + estrelas dentro ===== */}
