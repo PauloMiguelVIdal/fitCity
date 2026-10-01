@@ -28,7 +28,7 @@ import {
 import { ModalShop } from '../components/ModalShop'
 import { useFitCityStore } from '../store/fitcityStore'
 import { usePatrimonioMap } from '../hooks/usePatrimônioMap'
-
+import GuidedActivity from '../components/GuidedActivity'
 // ============================================================
 // CONSTANTES
 // ============================================================
@@ -382,6 +382,7 @@ export default function HomeScreen({
           <p className="text-[10px] sm:text-[11px] text-purple-100/80 truncate">
             Converta seu treino em recursos para a cidade
           </p>
+          <GuidedActivity/>
         </div>
       </button>
 
