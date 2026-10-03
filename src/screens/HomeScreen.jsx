@@ -16,6 +16,8 @@ import {
   Bell,
   X,
   Sparkles,
+  ClipboardEdit,
+  Play
 } from 'lucide-react'
 
 import MapWorldFitCity from '../components/MapWorldCity'
@@ -51,6 +53,7 @@ function getSemanaAtualKey() {
 export default function HomeScreen({
   onNavigate,
   onRegistrar,
+  onPlay,
   onColetarRecompensa,
 }) {
   const [modalLojaAberto, setModalLojaAberto] = useState(false)
@@ -224,8 +227,7 @@ export default function HomeScreen({
       {/* ═══════════════════════════════════════════════════════ */}
       {/* HEADER — CIDADE + MAPA (alimentado pelo hook) */}
       {/* ═══════════════════════════════════════════════════════ */}
-      colocar icons no icones de navegação,
-      colocar sistema de navegação via zustand
+
       <div className="relative flex items-center justify-between z-10 gap-2 w-full">
         <div className="relative w-full bg-fitcity-surface/50 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(100,17,217,0.35)] z-10">
           <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-fitcity-accent/30 blur-[80px]" />
@@ -364,33 +366,37 @@ export default function HomeScreen({
       </button>
 
       {/* REGISTRAR ATIVIDADE */}
-      <button
-        onClick={onRegistrar}
-        className="relative flex items-center justify-center gap-2 bg-gradient-to-r from-fitcity-energy to-orange-600 rounded-2xl py-3 sm:py-3.5 px-3 font-semibold shadow-[0_10px_25px_rgba(242,116,5,0.45)] overflow-hidden z-10"
+      <div
+        className="relative flex items-center justify-around bg-gradient-to-br from-orange-[350973] via-orange-600 to-[#350973] rounded-xl py-3 sm:py-3.5 px-3 font-semibold overflow-hidden z-10"
       >
+        <div className="relative shrink-0 ">
+          <div className="absolute inset-0 bg-orange-600 rounded-xl blur-md opacity-60 animate-pulse" />
+          <button onClick={onPlay} className="relative gap-4 flex items-center justify-around bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2 sm:p-2.5 shadow-[0_4px_20px_rgba(234,88,12,0.6)]">
+            <  Play size={18} className="relative text-white sm:w-5 sm:h-5" />
+            <p className="font-semibold text-white text-base sm:text-xl truncate">
+              INICIAR
+            </p>
+          </button>
+        </div>
+                  <Activity size={20} className="relative text-white sm:w-5 sm:h-5" />
+
         <div className="relative shrink-0">
-          <div className="absolute inset-0 bg-orange-500 rounded-xl blur-md opacity-60 animate-pulse" />
-          <div className="relative bg-gradient-to-br from-orange-400 to-orange-600 rounded-xl p-2 sm:p-2.5 shadow-[0_4px_20px_rgba(234,88,12,0.6)]">
-            <Activity size={18} className="relative text-white sm:w-5 sm:h-5" />
-          </div>
+          <div className="absolute inset-0 bg-orange-600 rounded-xl blur-md opacity-60 animate-pulse" />
+          <button onClick={onRegistrar} className="relative gap-4  flex items-center justify-around bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-2 sm:p-2.5 shadow-[0_4px_20px_rgba(234,88,12,0.6)]">
+            <  ClipboardEdit size={18} className="relative text-white sm:w-5 sm:h-5" />
+            <p className="font-semibold text-white text-base sm:text-xl truncate">
+              REGISTRAR
+            </p>
+          </button>
         </div>
         <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
-        <div className="relative flex-1 min-w-0 text-left">
-          <p className="font-semibold text-white text-base sm:text-xl truncate">
-            + REGISTRAR ATIVIDADE
-          </p>
-          <p className="text-[10px] sm:text-[11px] text-purple-100/80 truncate">
-            Converta seu treino em recursos para a cidade
-          </p>
-          <GuidedActivity/>
-        </div>
-      </button>
+      </div>
 
       {/* META DA SEMANA */}
       <div
         className={`relative rounded-3xl p-3 sm:p-4 z-10 overflow-hidden border shadow-[0_4px_16px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-500 ${metaSemanalBatida
-            ? 'bg-gradient-to-br from-[#F27405]/35 to-[#6411D9]/55 border-[#6411D9]/35'
-            : 'bg-[#1E0A3C]/55 border-purple-500/20'
+          ? 'bg-gradient-to-br from-[#F27405]/35 to-[#6411D9]/55 border-[#6411D9]/35'
+          : 'bg-[#1E0A3C]/55 border-purple-500/20'
           }`}
       >
         <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full bg-purple-600/20 blur-[60px] pointer-events-none" />
@@ -413,10 +419,10 @@ export default function HomeScreen({
             disabled={!metaSemanalBatida || recompensaJaColetada}
             onClick={handleColetarRecompensa}
             className={`rounded-xl px-2 sm:px-2.5 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-1.5 transition-all ${recompensaJaColetada
-                ? 'bg-[#6411D9] border border-[#6411D9]/40 cursor-default'
-                : metaSemanalBatida
-                  ? 'bg-gradient-to-br from-[#F27405] to-[#6411D9] shadow-[0_4px_15px_rgba(242,116,5,0.55)] hover:scale-105 active:scale-95 cursor-pointer animate-pulse'
-                  : 'bg-gradient-to-br from-orange-500 to-orange-600 opacity-60 cursor-not-allowed'
+              ? 'bg-[#6411D9] border border-[#6411D9]/40 cursor-default'
+              : metaSemanalBatida
+                ? 'bg-gradient-to-br from-[#F27405] to-[#6411D9] shadow-[0_4px_15px_rgba(242,116,5,0.55)] hover:scale-105 active:scale-95 cursor-pointer animate-pulse'
+                : 'bg-gradient-to-br from-orange-500 to-orange-600 opacity-60 cursor-not-allowed'
               }`}
             title={
               recompensaJaColetada
@@ -448,8 +454,8 @@ export default function HomeScreen({
         <div className="w-full h-1.5 bg-black/50 rounded-full mb-3 sm:mb-4 overflow-hidden relative z-10 border border-white/10">
           <div
             className={`h-full rounded-full transition-all duration-500 ${metaSemanalBatida
-                ? 'bg-gradient-to-r from-[#6411D9] via-[#F27405] to-orange-600 shadow-[0_0_10px_rgba(100,17,217,0.7)]'
-                : 'bg-gradient-to-r from-[#350973] to-[#F27405] shadow-[0_0_8px_rgba(242,116,5,0.5)]'
+              ? 'bg-gradient-to-r from-[#6411D9] via-[#F27405] to-orange-600 shadow-[0_0_10px_rgba(100,17,217,0.7)]'
+              : 'bg-gradient-to-r from-[#350973] to-[#F27405] shadow-[0_0_8px_rgba(242,116,5,0.5)]'
               }`}
             style={{ width: `${(progressoSemanal / META_SEMANAL_ATIVIDADES) * 100}%` }}
           />
@@ -461,8 +467,8 @@ export default function HomeScreen({
               <div className="relative">
                 <div
                   className={`w-7 h-7 xs:w-8 xs:h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-bold text-[10px] xs:text-xs sm:text-sm transition-all ${item.concluido
-                      ? 'bg-gradient-to-br from-[#F27405] to-orange-600 text-white shadow-[0_4px_15px_rgba(242,116,5,0.5)]'
-                      : 'bg-purple-900/40 text-purple-300/50 border border-purple-500/20'
+                    ? 'bg-gradient-to-br from-[#F27405] to-orange-600 text-white shadow-[0_4px_15px_rgba(242,116,5,0.5)]'
+                    : 'bg-purple-900/40 text-purple-300/50 border border-purple-500/20'
                     }`}
                 >
                   {item.dia}

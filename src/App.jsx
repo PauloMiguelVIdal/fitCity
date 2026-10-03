@@ -11,13 +11,13 @@ import { useAtividades } from './hooks/useAtividades'
 import RegistrarAtividadeModal from './components/RegistrarAtividadeModal'
 import { useOrientationLock } from './hooks/useOrientationLock'
 import OrientationGuard from './components/OrientationGuard'
-import { useFitCityStore } from './store/fitCityStore'
+import { useFitCityStore } from './store/fitcityStore'
 import GuidedActivity from './components/GuidedActivity'
 
 export default function App() {
   const [tab, setTab] = useState('inicio')
   const [modalAberto, setModalAberto] = useState(false)
-  const [guiadaAberta , setGuiadaAberta ] = useState(false)
+  const [guiadaAberta, setGuiadaAberta] = useState(false)
   const { atividades, adicionarAtividade } = useAtividades()
 
   const limparNotificacao = useFitCityStore((s) => s.limparNotificacao)
@@ -36,7 +36,7 @@ export default function App() {
       <GraphicsConfigProvider>
         <main className="flex-1 overflow-y-auto pb-[88px]">
           {tab === 'inicio' && (
-            <HomeScreen onNavigate={setTab} atividades={atividades} onRegistrar={() => setModalAberto(true)} />
+            <HomeScreen onNavigate={setTab} atividades={atividades} onRegistrar={() => setModalAberto(true)} onPlay={() => setGuiadaAberta(true)}/>
           )}
           {tab === 'cidade' && <CityScreen atividades={atividades} />}
           {tab === 'inventario' && <InventoryScreen />}
@@ -51,14 +51,14 @@ export default function App() {
         <RegistrarAtividadeModal onClose={() => setModalAberto(false)} onSalvar={adicionarAtividade} />
       )}
       {guiadaAberta && (
-  <GuidedActivity
-    onClose={() => setGuiadaAberta(false)}
-    onSalvar={(atividade) => {
-      console.log('Treino guiado registrado:', atividade)
+        <GuidedActivity
+          onClose={() => setGuiadaAberta(false)}
+          onSalvar={(atividade) => {
+            console.log('Treino guiado registrado:', atividade)
 
-    }}
-  />
-)}
+          }}
+        />
+      )}
 
     </div>
   )
