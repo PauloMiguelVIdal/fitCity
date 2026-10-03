@@ -12,10 +12,12 @@ import RegistrarAtividadeModal from './components/RegistrarAtividadeModal'
 import { useOrientationLock } from './hooks/useOrientationLock'
 import OrientationGuard from './components/OrientationGuard'
 import { useFitCityStore } from './store/fitCityStore'
+import GuidedActivity from './components/GuidedActivity'
 
 export default function App() {
   const [tab, setTab] = useState('inicio')
   const [modalAberto, setModalAberto] = useState(false)
+  const [guiadaAberta , setGuiadaAberta ] = useState(false)
   const { atividades, adicionarAtividade } = useAtividades()
 
   const limparNotificacao = useFitCityStore((s) => s.limparNotificacao)
@@ -48,6 +50,16 @@ export default function App() {
       {modalAberto && (
         <RegistrarAtividadeModal onClose={() => setModalAberto(false)} onSalvar={adicionarAtividade} />
       )}
+      {guiadaAberta && (
+  <GuidedActivity
+    onClose={() => setGuiadaAberta(false)}
+    onSalvar={(atividade) => {
+      console.log('Treino guiado registrado:', atividade)
+
+    }}
+  />
+)}
+
     </div>
   )
 }
