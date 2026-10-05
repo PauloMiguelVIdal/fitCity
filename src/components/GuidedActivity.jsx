@@ -12,7 +12,7 @@ import {
 } from '../utils/atividades'
 import { calcularXpAtividade } from '../utils/progressaoUsuario'
 import { resolverVisualEdificio } from '../data/edificiosVisual'
-import { useFitCityStore } from '../store/fitcityStore'
+import { useFitCityStore } from '../store/fitCityStore'
 import CardFitCityActivities from './CardFitCityActivities'
 
 // =============================================
