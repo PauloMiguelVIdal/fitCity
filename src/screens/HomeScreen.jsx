@@ -367,7 +367,7 @@ export default function HomeScreen({
 
       {/* REGISTRAR ATIVIDADE */}
       <div
-        className="relative flex items-center justify-around bg-gradient-to-br from-orange-[350973] via-orange-600 to-[#350973] rounded-xl py-3 sm:py-3.5 px-3 font-semibold overflow-hidden z-10"
+        className="relative flex items-center justify-around bg-gradient-to-br from-[#350973] via-purple-500 to-[#350973] rounded-xl py-3 sm:py-3.5 px-3 font-semibold overflow-hidden z-10"
       >
         <div className="relative shrink-0 ">
           <div className="absolute inset-0 bg-orange-600 rounded-xl blur-md opacity-60 animate-pulse" />
@@ -378,7 +378,7 @@ export default function HomeScreen({
             </p>
           </button>
         </div>
-                  <Activity size={20} className="relative text-white sm:w-5 sm:h-5" />
+        <Activity size={20} className="relative text-white sm:w-5 sm:h-5" />
 
         <div className="relative shrink-0">
           <div className="absolute inset-0 bg-orange-600 rounded-xl blur-md opacity-60 animate-pulse" />
